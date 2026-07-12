@@ -1,0 +1,121 @@
+# Laravel P6 Analyzer
+
+[![PHP ^8.3](https://img.shields.io/badge/PHP-%5E8.3-8892BF.svg)](https://php.net)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+A standalone Laravel package for parsing, analyzing, and exporting **Primavera P6 XER** schedule files. Provides DCMA 14-point schedule assessments, critical path analysis, earned value calculations, resource utilization analysis, and much more — all from a fluent, developer-friendly API.
+
+## Features
+
+- **XER Parsing** — Parse `.xer` files or raw XER strings into a structured `ParsedXerData` object
+- **DCMA 14-Point Check** — Automated schedule quality assessment with configurable thresholds
+- **Critical Path Analysis** — Identify critical activities based on total float
+- **Earned Value Management** — Calculate PV, EV, AC, CPI, SPI, EAC
+- **Float Distribution** — Analyze total float spread across the schedule
+- **Relationship Analysis** — FS/SS/FF/SF type distribution and lag metrics
+- **Schedule Variance** — Compare two schedules to detect slipping activities
+- **Schedule Health Check** — Missing resources, missing logic, out-of-sequence detection
+- **Resource Utilization** — Per-resource loading with over-allocation detection
+- **WBS Analysis** — Work breakdown structure metrics
+- **Lookahead Generation** — Filtered x-week lookahead schedules
+- **Progress Summary** — Overall schedule progress by status and duration
+- **Work Package Rollup** — Summarize activities into WBS-based work packages
+- **Snapshot Comparison** — Diff two XER files to detect added/deleted/modified activities
+- **XER Export** — Write modified schedules back to XER format
+- **CSV Export** — Export any parsed table to CSV
+
+## Installation
+
+```bash
+composer require teckfuture/laravel-p6-analyzer
+```
+
+### Publish Configuration (Optional)
+
+```bash
+php artisan vendor:publish --tag=p6-analyzer-config
+```
+
+## Quick Start
+
+### Using the Facade
+
+```php
+use TeckFuture\P6Analyzer\Facades\P6Analyzer;
+
+// Load and analyze
+$report = P6Analyzer::load('/path/to/schedule.xer')->report('2024-01-15');
+
+// Critical path only
+$cpm = P6Analyzer::load('/path/to/schedule.xer')->criticalPath();
+
+// DCMA 14-point check
+$dcma = P6Analyzer::load('/path/to/schedule.xer')->dcma14Point('2024-01-15');
+```
+
+### Using the Manager Directly
+
+```php
+use TeckFuture\P6Analyzer\P6AnalyzerManager;
+
+$analyzer = new P6AnalyzerManager();
+$analyzer->load('/path/to/schedule.xer');
+
+$health = $analyzer->scheduleHealth('2024-01-15');
+$evm = $analyzer->earnedValue();
+$float = $analyzer->floatAnalysis();
+```
+
+### Querying Schedule Data
+
+```php
+$analyzer = new P6AnalyzerManager();
+$analyzer->load('/path/to/schedule.xer');
+
+$query = $analyzer->query();
+$projects = $query->listProjects();
+$activity = $query->getActivity('A1000');
+$results = $query->searchActivities('concrete');
+```
+
+### Exporting
+
+```php
+$xer = $analyzer->exportXer();                  // XER string
+$csv = $analyzer->exportCsv('TASK');             // CSV string
+$analyzer->exportXerToFile('/path/to/output.xer'); // Write to file
+```
+
+## Testing
+
+```bash
+./vendor/bin/pest
+```
+
+## Documentation
+
+Detailed documentation is available in the [docs/](docs/) directory:
+
+- [Installation](docs/installation.md)
+- [Configuration](docs/configuration.md)
+- [Parsing XER Files](docs/parsing.md)
+- [Querying Schedule Data](docs/querying.md)
+- [Analysis & Calculators](docs/analysis.md)
+- [Report Generation](docs/reporting.md)
+- [Schedule Comparison](docs/comparison.md)
+- [Modifying Schedules](docs/mutations.md)
+- [Exporting Data](docs/exporting.md)
+- [Facade & Manager API](docs/facade-api.md)
+- [Upgrading from In-App Code](docs/upgrading.md)
+
+## Contributing
+
+1. Fork and clone
+2. Create a feature branch
+3. Write tests for your changes
+4. Run `./vendor/bin/pest` and `./vendor/bin/pint`
+5. Submit a pull request
+
+## License
+
+MIT — see [LICENSE](LICENSE).

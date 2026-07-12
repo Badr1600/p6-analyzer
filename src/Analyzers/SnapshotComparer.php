@@ -1,0 +1,75 @@
+<?php
+
+namespace TeckFuture\P6Analyzer\Analyzers;
+
+use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
+
+/**
+ * Diffs two ParsedXerData snapshots to highlight changes.
+ */
+class SnapshotComparer
+{
+    /**
+     * @return array{added_activities: array, deleted_activities: array, modified_activities: array, total_changes: int}
+     */
+    public function compare(ParsedXerData $currentData, ParsedXerData $baselineData): array
+    {
+        $currentActivities = $currentData->getActivities()->keyBy('task_code');
+        $baselineActivities = $baselineData->getActivities()->keyBy('task_code');
+
+        $added = [];
+        $deleted = [];
+        $modified = [];
+
+        foreach ($currentActivities as $taskCode => $current) {
+            $baseline = $baselineActivities->get($taskCode);
+            if (! $baseline) {
+                $added[] = $taskCode;
+
+                continue;
+            }
+
+            $changes = [];
+
+            if ($current->status_code !== $baseline->status_code) {
+                $changes['status'] = [
+                    'from' => $baseline->status_code,
+                    'to' => $current->status_code,
+                ];
+            }
+
+            if ($current->target_drtn_hr_cnt != $baseline->target_drtn_hr_cnt) {
+                $changes['duration'] = [
+                    'from' => $baseline->target_drtn_hr_cnt,
+                    'to' => $current->target_drtn_hr_cnt,
+                ];
+            }
+
+            $cStart = $current->target_start_date?->toDateString();
+            $bStart = $baseline->target_start_date?->toDateString();
+            if ($cStart !== $bStart) {
+                $changes['start_date'] = [
+                    'from' => $bStart,
+                    'to' => $cStart,
+                ];
+            }
+
+            if (! empty($changes)) {
+                $modified[$taskCode] = $changes;
+            }
+        }
+
+        foreach ($baselineActivities as $taskCode => $baseline) {
+            if (! $currentActivities->has($taskCode)) {
+                $deleted[] = $taskCode;
+            }
+        }
+
+        return [
+            'added_activities' => $added,
+            'deleted_activities' => $deleted,
+            'modified_activities' => $modified,
+            'total_changes' => count($added) + count($deleted) + count($modified),
+        ];
+    }
+}
