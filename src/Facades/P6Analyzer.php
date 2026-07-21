@@ -12,7 +12,7 @@ use TeckFuture\P6Analyzer\P6AnalyzerManager;
  * @method static array criticalPath(?float $threshold = null)
  * @method static array floatAnalysis()
  * @method static array dcma14Point(?string $dataDate = null)
- * @method static array earnedValue()
+ * @method static array earnedValue(?string $dataDate = null)
  * @method static array relationshipAnalysis()
  * @method static array scheduleHealth(?string $dataDate = null)
  * @method static array resourceUtilization(string $period = 'week', ?float $dailyLimit = null)

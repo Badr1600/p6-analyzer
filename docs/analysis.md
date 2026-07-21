@@ -32,6 +32,19 @@ $result = $analyzer->earnedValue();
 // ['planned_value', 'earned_value', 'actual_cost', 'budget_at_completion', 'cost_variance', 'schedule_variance', 'cpi', 'spi', 'estimate_at_completion']
 ```
 
+Pass a `$dataDate` to enable automatic EVM fallbacks when cost data is missing:
+
+```php
+$result = $analyzer->earnedValue('2024-06-15');
+```
+
+**Fallback behavior** (when `$dataDate` is provided):
+
+- **BAC fallback**: Uses `target_drtn_hr_cnt` (duration hours) when `target_cost` is zero.
+- **Actual Cost estimation**: For duration-based activities, approximates AC from elapsed hours (in-progress) or BAC (completed).
+- **Planned Value estimation**: Calculates PV using linear interpolation between `target_start_date` and `target_end_date`.
+
+
 ## Relationship Analysis (`RelationshipAnalyzer`)
 
 ```php

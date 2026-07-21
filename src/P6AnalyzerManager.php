@@ -125,11 +125,11 @@ class P6AnalyzerManager
      *
      * @return array{planned_value: float, earned_value: float, actual_cost: float, cpi: float, spi: float}
      */
-    public function earnedValue(): array
+    public function earnedValue(?string $dataDate = null): array
     {
         $this->ensureLoaded();
 
-        return (new EarnedValueCalculator)->calculate($this->data->getActivities());
+        return (new EarnedValueCalculator)->calculate($this->data->getActivities(), $dataDate);
     }
 
     /**

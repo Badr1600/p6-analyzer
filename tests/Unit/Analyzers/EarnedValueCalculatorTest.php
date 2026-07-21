@@ -296,21 +296,21 @@ test('planned_value falls back to 0 when field is absent', function () {
 // Null field fallback (?? 0) — kills DecrementInteger ?? 0 → -1
 // ---------------------------------------------------------------
 
-test('activity with null target_cost contributes 0 to BAC', function () {
-    // Creates activity without target_cost — forces the ?? 0 path
+test('activity with null target_cost falls back to duration for BAC', function () {
+    // Creates activity without target_cost — triggers duration fallback
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'status_code' => 'TK_Active',
         'phys_comp_pct' => '100',
         'target_drtn_hr_cnt' => '40',
-        // No target_cost — null path
+        // No target_cost — duration fallback path
     ]);
 
     $result = (new EarnedValueCalculator)->calculate(collect([$activity]));
 
-    // BAC = 0, EV = 0, AC = 0 → CPI = 1.0, BAC = 0
-    expect($result['budget_at_completion'])->toBe(0.0)
-        ->and($result['earned_value'])->toBe(0.0);
+    // BAC = 40 (from target_drtn_hr_cnt), EV = 40 (100% × 40)
+    expect($result['budget_at_completion'])->toBe(40.0)
+        ->and($result['earned_value'])->toBe(40.0);
 });
 
 test('activity with null act_cost contributes 0 to actual_cost', function () {

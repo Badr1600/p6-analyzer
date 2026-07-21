@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Changed
+- `EarnedValueCalculator::calculate()` now accepts an optional `$dataDate` parameter
+- `P6AnalyzerManager::earnedValue()` now accepts an optional `$dataDate` parameter
+
+### Improved
+- EVM calculations fall back to duration (hours) when `target_cost` is zero
+- Planned Value is estimated from schedule dates when not explicitly provided
+- Actual Cost is approximated from elapsed duration for in-progress activities using duration fallback
+
 ## [1.0.0] - 2026-07-12
 
 ### Added
