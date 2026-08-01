@@ -43,14 +43,23 @@ class ResourceUtilizationAnalyzer
             $rsrcName = $resource['rsrc_name'] ?? $rsrcId;
             $qty = (float) ($assignment['target_qty'] ?? 0);
 
-            $start = $activity->target_start_date ?? $activity->act_start_date;
-            $end = $activity->target_end_date ?? $activity->act_end_date;
+            // The assignment's own dates are the authoritative window for the
+            // resource's work; the activity dates are the fallback.
+            $start = $this->parseDate($assignment['target_start_date'] ?? null)
+                ?? $activity->target_start_date
+                ?? $activity->act_start_date;
+            $end = $this->parseDate($assignment['target_end_date'] ?? null)
+                ?? $activity->target_end_date
+                ?? $activity->act_end_date;
 
             if (! $start || ! $end || $start->isAfter($end)) {
                 continue;
             }
 
-            $days = $start->diffInDays($end) + 1;
+            // Whole-day count. XER dates carry times, and Carbon 3 returns a
+            // fractional diffInDays — feeding that into the divisor while the
+            // loop iterates whole days silently under-allocated hours.
+            $days = (int) $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
             $qtyPerDay = $qty / $days;
 
             $current = $start->copy();
@@ -97,6 +106,19 @@ class ResourceUtilizationAnalyzer
             'month' => $date->format('Y-m'),
             default => $date->copy()->startOfWeek()->toDateString().' (Week)',
         };
+    }
+
+    private function parseDate(mixed $value): ?Carbon
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     private function configValue(string $key, mixed $default): mixed

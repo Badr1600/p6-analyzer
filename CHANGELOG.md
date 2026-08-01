@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-08-01
+
+### Fixed
+- `ResourceUtilizationAnalyzer` silently under-allocated hours under Carbon 3:
+  XER dates carry times and `diffInDays` now returns a fraction, inflating
+  the per-day divisor while the loop iterates whole days (~5% of hours
+  vanished on a typical week-long assignment). Allocation now counts whole
+  days.
+
+### Changed
+- `ResourceUtilizationAnalyzer` prefers the TASKRSRC assignment's own
+  `target_start_date`/`target_end_date` window over the activity dates
+  (falling back to activity dates as before) — a resource assigned for one
+  week of a month-long activity no longer has its hours smeared across the
+  whole activity.
+
 ## [2.1.0] - 2026-08-01
 
 Schedule comparison rebuilt on a working join, the DCMA table extended to its

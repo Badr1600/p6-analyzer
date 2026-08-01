@@ -354,3 +354,63 @@ test('daily limit uses config value if present and no override provided', functi
         expect($result['over_allocations'])->toBeEmpty();
     }
 });
+
+// ---------------------------------------------------------------
+// v2.1.1 — whole-day allocation and assignment-date preference
+// ---------------------------------------------------------------
+
+test('distributes the full quantity when dates carry times (Carbon 3 fractional diff)', function () {
+    $data = new ParsedXerData(
+        header: '',
+        tables: collect([
+            'TASK' => collect([[
+                'task_id' => '1', 'task_code' => 'A1', 'task_name' => 'T',
+                'status_code' => 'TK_Active',
+                'target_start_date' => '2024-06-14 08:00', 'target_end_date' => '2024-06-20 17:00',
+            ]]),
+            'TASKRSRC' => collect([[
+                'task_id' => '1', 'rsrc_id' => 'R1', 'target_qty' => '70',
+            ]]),
+            'RSRC' => collect([[
+                'rsrc_id' => 'R1', 'rsrc_name' => 'Welder',
+            ]]),
+            'TASKPRED' => collect([]),
+            'PROJWBS' => collect([]),
+        ])
+    );
+
+    $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'month');
+
+    // 7 whole days at 10h/day — every hour lands, none silently vanish.
+    expect(round(array_sum($result['utilization']['Welder']), 2))->toEqual(70.0);
+});
+
+test('prefers assignment dates over activity dates when present', function () {
+    $data = new ParsedXerData(
+        header: '',
+        tables: collect([
+            'TASK' => collect([[
+                'task_id' => '1', 'task_code' => 'A1', 'task_name' => 'T',
+                'status_code' => 'TK_Active',
+                'target_start_date' => '2024-03-01', 'target_end_date' => '2024-03-31',
+            ]]),
+            'TASKRSRC' => collect([[
+                'task_id' => '1', 'rsrc_id' => 'R1', 'target_qty' => '40',
+                // The resource works only one week of the month-long activity.
+                'target_start_date' => '2024-03-11', 'target_end_date' => '2024-03-15',
+            ]]),
+            'RSRC' => collect([[
+                'rsrc_id' => 'R1', 'rsrc_name' => 'Welder',
+            ]]),
+            'TASKPRED' => collect([]),
+            'PROJWBS' => collect([]),
+        ])
+    );
+
+    $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'day');
+
+    // 5 days at 8h/day, only within the assignment window.
+    expect($result['utilization']['Welder'])->toHaveCount(5)
+        ->and($result['utilization']['Welder']['2024-03-11'])->toEqual(8.0)
+        ->and(isset($result['utilization']['Welder']['2024-03-01']))->toBeFalse();
+});
