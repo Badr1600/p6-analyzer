@@ -60,4 +60,37 @@ return [
     |
     */
     'resource_overallocation_daily_limit' => 8,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Earned Value Management
+    |--------------------------------------------------------------------------
+    |
+    | default_method: measurement basis used when none is passed explicitly —
+    |   'cost', 'labor_units', 'duration', or 'auto' (pick the best-covered
+    |   method per project; never mixes units across activities).
+    |
+    | auto_coverage_threshold: minimum share (0–1) of measurable activities
+    |   that must carry data for 'auto' to select cost or labor units before
+    |   falling back to duration.
+    |
+    | infer_actuals_from_remaining: when a schedule tracks remaining amounts
+    |   but never records actuals (a common P6 setup), derive
+    |   AC = BAC − remaining for activities that carry a remaining value.
+    |
+    | respect_complete_pct_type: honor each activity's P6 complete_pct_type
+    |   (CP_Phys / CP_Drtn / CP_Units) when selecting the percent complete
+    |   that earns value.
+    |
+    | status_overrides_percent: Completed activities earn 100% and
+    |   Not Started activities earn 0%, regardless of stale percent fields.
+    |
+    */
+    'evm' => [
+        'default_method' => 'auto',
+        'auto_coverage_threshold' => 0.5,
+        'infer_actuals_from_remaining' => true,
+        'respect_complete_pct_type' => true,
+        'status_overrides_percent' => true,
+    ],
 ];

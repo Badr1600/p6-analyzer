@@ -6,6 +6,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-31
+
+Earned Value Management rebuilt around explicit measurement methods. EVM now
+runs under a single basis for the whole calculation — units are never mixed
+across activities.
+
+### Added
+- `EvmMethod` enum: `cost` | `labor_units` | `duration` | `auto`; `auto`
+  resolves the best-covered method per project (preferring cost, then labor
+  units, at a configurable coverage threshold)
+- Labor-units measurement basis using the TASK table's native work quantities
+  (`target_work_qty` / `act_work_qty` / `remain_work_qty`), mirroring P6's
+  "By Labor Units" summary metrics
+- `P6AnalyzerManager::earnedValue(?string $dataDate, EvmMethod|string|null $method)`
+  method parameter, with a `evm.default_method` config fallback
+- `P6AnalyzerManager::earnedValueReport()` / `EarnedValueCalculator::report()` —
+  every method in one pass (`by_cost`, `by_labor_units`, `by_duration`,
+  `recommended`), mirroring P6's paired By-Cost / By-Labor-Units summaries
+- EVM result metadata: `method`, `unit`, `coverage` (measurable activities vs
+  activities with data), and `actual_cost_sources` (tracked / inferred /
+  status / none per-activity counts)
+- EAC family completed: `estimate_to_complete`, `variance_at_completion`, `tcpi`
+- Actual-cost inference: `AC = BAC − remaining` for activities that carry a
+  present remaining amount, for schedules that track remaining cost but never
+  record actuals (`evm.infer_actuals_from_remaining`)
+- P6 `complete_pct_type` support: `CP_Drtn` earns from duration progress,
+  `CP_Units` from unit progress (`evm.respect_complete_pct_type`)
+- Status overrides: Completed earns 100%, Not Started earns 0%
+  (`evm.status_overrides_percent`)
+- `CostInference::inferActual()` support helper — the shared
+  planned/tracked/remaining resolution rule for host applications
+- `ActivityEvmInput` DTO — the per-activity, per-method extraction shape
+- `ActivityData` typed fields: `remain_cost`, `target_work_qty`,
+  `act_work_qty`, `remain_work_qty`, `remain_drtn_hr_cnt`,
+  `complete_pct_type`, `task_type`
+- `ParsedXerData::getActivities()` now rolls TASKRSRC costs
+  (`target_cost`, `act_reg_cost` + `act_ot_cost`, `remain_cost`) up to each
+  activity
+- `EarnedValueCalculator` constructor accepts an options array overriding
+  `config('p6-analyzer.evm.*')`
+- `evm.*` config block with all calculation toggles
+
+### Changed
+- **Breaking:** per-activity cost→duration fallback removed — the measurement
+  method applies to the whole calculation; activities lacking data for the
+  chosen method are reported in `coverage` instead of switching units mid-sum
+- **Breaking:** `cpi`, `spi` (and the new `tcpi`) are `null` instead of a
+  fake `1.0` when their denominators are zero
+- **Breaking:** EVM result keys `source`, `has_cost_data`,
+  `cost_data_coverage`, and `duration_fallback_count` replaced by `method`,
+  `unit`, `coverage`, and `actual_cost_sources`
+- `ActivityData` reads `phys_complete_pct` (the actual XER column) before
+  `phys_comp_pct` for physical percent complete
+- `ProgressSummarizer::summarize()` also accepts `Collection<ActivityData>`
+  or arrays, not just `ParsedXerData`
+- WBS summary bars (`TT_WBS`) and milestones (`TT_Mile`, `TT_FinMile`) are
+  excluded from EVM sums and coverage denominators
+- `estimate_at_completion` divides by the unrounded CPI (no rounding-error
+  propagation)
+- Config reads survive environments where framework helpers are autoloaded
+  without a booted application (standalone CLI usage)
+
+### Removed
+- **Breaking:** calendar-hours actual-cost estimation for duration-based
+  activities (counted nights and weekends against work-hour budgets); the
+  duration method now infers from `remain_drtn_hr_cnt` and status instead
+
+### Fixed
+- An absent `remain_cost` field no longer reads as "zero remaining", which
+  assigned full BAC as actual cost to untouched in-progress activities
+
 ## [1.2.0] - 2026-07-28
 
 ### Changed

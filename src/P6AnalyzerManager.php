@@ -17,6 +17,7 @@ use TeckFuture\P6Analyzer\Analyzers\SnapshotComparer;
 use TeckFuture\P6Analyzer\Analyzers\WbsAnalyzer;
 use TeckFuture\P6Analyzer\Analyzers\WorkPackageSummarizer;
 use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
+use TeckFuture\P6Analyzer\Enums\EvmMethod;
 use TeckFuture\P6Analyzer\IO\CsvExporter;
 use TeckFuture\P6Analyzer\IO\ScheduleQueryEngine;
 use TeckFuture\P6Analyzer\IO\ScheduleUpdater;
@@ -121,15 +122,37 @@ class P6AnalyzerManager
     }
 
     /**
-     * Run earned value analysis.
+     * Run earned value analysis under a single measurement method.
      *
-     * @return array{planned_value: float, earned_value: float, actual_cost: float, cpi: float, spi: float}
+     * @param  EvmMethod|string|null  $method  Measurement basis ('cost', 'labor_units',
+     *                                         'duration', 'auto'); null uses the
+     *                                         configured default, falling back to auto.
+     * @return array{method: string, unit: string, data_date: ?string, planned_value: float, earned_value: float, actual_cost: float, budget_at_completion: float, cost_variance: float, schedule_variance: float, cpi: ?float, spi: ?float, estimate_at_completion: float, estimate_to_complete: float, variance_at_completion: float, tcpi: ?float, coverage: array, actual_cost_sources: array}
      */
-    public function earnedValue(?string $dataDate = null): array
+    public function earnedValue(?string $dataDate = null, EvmMethod|string|null $method = null): array
     {
         $this->ensureLoaded();
 
-        return (new EarnedValueCalculator)->calculate($this->data->getActivities(), $dataDate);
+        $method ??= function_exists('config') ? config('p6-analyzer.evm.default_method') : null;
+
+        return (new EarnedValueCalculator)->calculate(
+            $this->data->getActivities(),
+            $dataDate,
+            EvmMethod::fromString($method),
+        );
+    }
+
+    /**
+     * Run earned value analysis under every measurement method in one pass,
+     * mirroring P6's paired By-Cost / By-Labor-Units summaries.
+     *
+     * @return array{data_date: ?string, by_cost: array, by_labor_units: array, by_duration: array, recommended: string}
+     */
+    public function earnedValueReport(?string $dataDate = null): array
+    {
+        $this->ensureLoaded();
+
+        return (new EarnedValueCalculator)->report($this->data->getActivities(), $dataDate);
     }
 
     /**

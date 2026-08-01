@@ -50,6 +50,13 @@ final class ActivityData
         public readonly ?float $complete_pct,
         public readonly ?float $planned_value,
         public readonly array $raw_data = [],
+        public readonly ?float $remain_cost = null,
+        public readonly ?float $target_work_qty = null,
+        public readonly ?float $act_work_qty = null,
+        public readonly ?float $remain_work_qty = null,
+        public readonly ?float $remain_drtn_hr_cnt = null,
+        public readonly ?string $complete_pct_type = null,
+        public readonly ?string $task_type = null,
     ) {}
 
     /**
@@ -83,10 +90,17 @@ final class ActivityData
             target_end_date: self::parseDate($rawData['target_end_date'] ?? null),
             target_cost: self::toNullableFloat($rawData['target_cost'] ?? null),
             act_cost: self::toNullableFloat($rawData['act_cost'] ?? null),
-            phys_comp_pct: self::toNullableFloat($rawData['phys_comp_pct'] ?? null),
+            phys_comp_pct: self::toNullableFloat($rawData['phys_complete_pct'] ?? $rawData['phys_comp_pct'] ?? null),
             complete_pct: self::toNullableFloat($rawData['complete_pct'] ?? null),
             planned_value: self::toNullableFloat($rawData['planned_value'] ?? null),
             raw_data: $rawData,
+            remain_cost: self::toNullableFloat($rawData['remain_cost'] ?? null),
+            target_work_qty: self::toNullableFloat($rawData['target_work_qty'] ?? null),
+            act_work_qty: self::toNullableFloat($rawData['act_work_qty'] ?? null),
+            remain_work_qty: self::toNullableFloat($rawData['remain_work_qty'] ?? null),
+            remain_drtn_hr_cnt: self::toNullableFloat($rawData['remain_drtn_hr_cnt'] ?? null),
+            complete_pct_type: ($rawData['complete_pct_type'] ?? null) ?: null,
+            task_type: ($rawData['task_type'] ?? null) ?: null,
         );
     }
 

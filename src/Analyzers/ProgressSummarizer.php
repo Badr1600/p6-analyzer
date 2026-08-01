@@ -2,6 +2,8 @@
 
 namespace TeckFuture\P6Analyzer\Analyzers;
 
+use Illuminate\Support\Collection;
+use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
 
 /**
@@ -10,11 +12,16 @@ use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
 class ProgressSummarizer
 {
     /**
+     * @param  ParsedXerData|Collection<int, ActivityData>|array<int, ActivityData>  $data
      * @return array{total_activities: int, status_counts: array, status_percentages: array, overall_percent_complete_by_duration: float}
      */
-    public function summarize(ParsedXerData $data): array
+    public function summarize(ParsedXerData|Collection|array $data): array
     {
-        $activities = $data->getActivities();
+        $activities = match (true) {
+            $data instanceof ParsedXerData => $data->getActivities(),
+            is_array($data) => collect($data),
+            default => $data,
+        };
 
         $totalActivities = $activities->count();
         $notStarted = 0;

@@ -20,7 +20,8 @@ The central class for all operations. Can be used standalone (without Laravel) o
 | `criticalPath(?float $threshold)` | `array` | `CriticalPathCalculator` |
 | `floatAnalysis()` | `array` | `FloatAnalyzer` |
 | `dcma14Point(?string $dataDate)` | `array` | `DCMA14PointChecker` |
-| `earnedValue(?string $dataDate)` | `array` | `EarnedValueCalculator` |
+| `earnedValue(?string $dataDate, EvmMethod|string|null $method)` | `array` | `EarnedValueCalculator` |
+| `earnedValueReport(?string $dataDate)` | `array` | `EarnedValueCalculator` |
 | `relationshipAnalysis()` | `array` | `RelationshipAnalyzer` |
 | `scheduleVariance(ParsedXerData $master)` | `array` | `ScheduleVarianceCalculator` |
 | `scheduleHealth(?string $dataDate)` | `array` | `ScheduleHealthChecker` |

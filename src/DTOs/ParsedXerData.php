@@ -59,7 +59,36 @@ final class ParsedXerData
      */
     public function getActivities(): Collection
     {
-        return $this->getTable('TASK')->map(fn (array $row) => ActivityData::fromModelOrArray($row));
+        $taskrsrc = $this->getTable('TASKRSRC');
+        $costsByActivity = [];
+        foreach ($taskrsrc as $r) {
+            $actId = $r['task_id'] ?? null;
+            if ($actId) {
+                if (! isset($costsByActivity[$actId])) {
+                    $costsByActivity[$actId] = [
+                        'target_cost' => 0.0,
+                        'act_reg_cost' => 0.0,
+                        'act_ot_cost' => 0.0,
+                        'remain_cost' => 0.0,
+                    ];
+                }
+                $costsByActivity[$actId]['target_cost'] += (float) ($r['target_cost'] ?? 0);
+                $costsByActivity[$actId]['act_reg_cost'] += (float) ($r['act_reg_cost'] ?? 0);
+                $costsByActivity[$actId]['act_ot_cost'] += (float) ($r['act_ot_cost'] ?? 0);
+                $costsByActivity[$actId]['remain_cost'] += (float) ($r['remain_cost'] ?? 0);
+            }
+        }
+
+        return $this->getTable('TASK')->map(function (array $row) use ($costsByActivity) {
+            $actId = $row['task_id'] ?? null;
+            if ($actId && isset($costsByActivity[$actId])) {
+                $row['target_cost'] = (string) ($costsByActivity[$actId]['target_cost']);
+                $row['act_cost'] = (string) ($costsByActivity[$actId]['act_reg_cost'] + $costsByActivity[$actId]['act_ot_cost']);
+                $row['remain_cost'] = (string) ($costsByActivity[$actId]['remain_cost']);
+            }
+
+            return ActivityData::fromModelOrArray($row);
+        });
     }
 
     /**
