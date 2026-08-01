@@ -227,3 +227,36 @@ test('relationship with empty predecessor string skips hasSuccessor registration
 
     expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(1);
 });
+
+// ---------------------------------------------------------------
+// v2.1 — drill-down lists
+// ---------------------------------------------------------------
+
+test('offending activities travel as drill-down lists alongside the counts', function () {
+    $data = new ParsedXerData(
+        header: '',
+        tables: collect([
+            'TASK' => collect([
+                ['task_id' => '1', 'task_code' => 'A100', 'task_name' => 'No logic no resources', 'status_code' => 'TK_NotStart'],
+                ['task_id' => '2', 'task_code' => 'A200', 'task_name' => 'Started after data date', 'status_code' => 'TK_Active', 'act_start_date' => '2024-07-01'],
+            ]),
+            'TASKPRED' => collect([
+                ['pred_task_id' => '2', 'task_id' => '99', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '0'],
+            ]),
+            'TASKRSRC' => collect([
+                ['task_id' => '2', 'rsrc_id' => '5'],
+            ]),
+            'PROJWBS' => collect([]),
+        ])
+    );
+
+    $result = (new ScheduleHealthChecker)->check($data, '2024-06-01');
+
+    expect($result['missing_logic'])->toBe(1)
+        ->and($result['missing_logic_activities'])->toHaveCount(1)
+        ->and($result['missing_logic_activities'][0]['task_code'])->toBe('A100')
+        ->and($result['missing_resources_activities'][0]['task_code'])->toBe('A100')
+        ->and($result['out_of_sequence'])->toBe(1)
+        ->and($result['out_of_sequence_activities'][0]['task_code'])->toBe('A200')
+        ->and($result['details_limit'])->toBe(200);
+});

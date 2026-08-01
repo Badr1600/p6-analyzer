@@ -6,6 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-01
+
+Schedule comparison rebuilt on a working join, the DCMA table extended to its
+honest scope, and drill-down detail for the health checks.
+
+### Fixed
+- `ScheduleVarianceCalculator` matched activities by `activity_id`, which is
+  always null for imported XER data — `keyBy(null)` collapsed the entire
+  baseline onto one arbitrary row and every activity was compared against it.
+  Matching is now by `task_code` (as `SnapshotComparer` already does), so
+  every figure the calculator has ever produced for XER-imported data should
+  be considered invalid before this release.
+
+### Changed
+- `ScheduleVarianceCalculator::calculate()` `total_activities_compared` now
+  counts matched pairs (the raw current-set size moved to
+  `current_activities_count`); slipping rows gain `status`, `total_float_hr`,
+  start dates and a signed `start_variance_days`; a minimum-slip threshold is
+  available as a third parameter or the `min_slip_days` config key.
+- `DCMA14PointChecker::calculate()` accepts an optional relationships
+  collection as a third parameter, unlocking the logic/leads/lags/
+  relationship-type points.
+
+### Added
+- `DCMA14PointChecker` now emits a `points` table representing all 14 DCMA
+  assessment points — ten assessable from an imported schedule (logic, leads,
+  lags, relationship types, hard constraints, high float, negative float,
+  high duration, invalid dates, missed activities), each with count,
+  percentage, DCMA threshold and pass/fail; the four that require an approved
+  baseline or delay simulation (resources, critical path test, CPLI, BEI)
+  are reported as not assessable with a reason instead of being fabricated.
+  An `assessable` flag distinguishes an empty schedule from a perfect one.
+  The `overall_score` formula is unchanged so stored score history remains
+  comparable.
+- `ScheduleHealthChecker` returns drill-down lists (`*_activities` with id,
+  task_code, name; capped at `details_limit` = 200) alongside each count.
+
 ## [2.0.0] - 2026-07-31
 
 Earned Value Management rebuilt around explicit measurement methods. EVM now
