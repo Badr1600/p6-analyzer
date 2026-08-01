@@ -66,6 +66,36 @@ $evm = $analyzer->earnedValue();
 $float = $analyzer->floatAnalysis();
 ```
 
+### Earned Value Management
+
+EVM runs under an explicit measurement method — `cost` (resource-assignment
+costs), `labor_units` (native TASK work quantities), or `duration` (a
+last-resort proxy). Units are never mixed across activities; `auto` (the
+default) picks the best-covered method per project and reports its choice.
+
+```php
+use TeckFuture\P6Analyzer\Enums\EvmMethod;
+
+// Single method — auto-resolved or explicit
+$evm = $analyzer->earnedValue('2024-01-15');
+$evm = $analyzer->earnedValue('2024-01-15', EvmMethod::LaborUnits);
+
+$evm['cpi'];                  // ?float — null when actual cost is unknowable
+$evm['method'];               // which basis actually ran, e.g. 'cost'
+$evm['coverage'];             // how many measurable activities carried data
+$evm['actual_cost_sources'];  // tracked vs inferred vs status-derived AC
+
+// Every method in one pass (mirrors P6's By-Cost / By-Labor-Units pairs)
+$all = $analyzer->earnedValueReport('2024-01-15');
+$all['by_cost'];
+$all['by_labor_units'];
+$all['recommended'];
+```
+
+Behavior toggles (config `p6-analyzer.evm.*` or the calculator's constructor):
+inferring actuals from remaining amounts, honoring P6 `complete_pct_type`,
+and status-driven percent overrides. See [docs/analysis.md](docs/analysis.md).
+
 ### Querying Schedule Data
 
 ```php
