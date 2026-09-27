@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-27
+
+### Fixed
+- `XerParser` truncated values that P6 writes across several physical lines.
+  Only lines starting with `ERMHDR`, `%T`, `%F` or `%R` were read, so
+  `CALENDAR.clndr_data` (work week, hours and exception dates) was cut at
+  `(0||CalendarData()(`. A line that starts with none of `ERMHDR`, `%T`, `%F`,
+  `%R` or `%E` is now a continuation of the current table's last row: it is
+  appended, after a newline, to that row's last value. Lines seen before a
+  table has any row are still ignored, and single-line tables parse exactly as
+  before (same padding and slicing of values).
+
 ## [2.1.1] - 2026-08-01
 
 ### Fixed
