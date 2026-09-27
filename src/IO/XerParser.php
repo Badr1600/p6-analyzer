@@ -2,6 +2,7 @@
 
 namespace TeckFuture\P6Analyzer\IO;
 
+use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
 use TeckFuture\P6Analyzer\Exceptions\XerParseException;
 
@@ -84,6 +85,8 @@ class XerParser
 
                 $row = array_combine($headers, $values);
                 $tables->get($currentTable)->push($row);
+            } elseif (! $this->startsWithRecordPrefix($line)) {
+                $this->appendContinuationLine($tables, $currentTable, $line);
             }
         }
 
@@ -91,5 +94,53 @@ class XerParser
             header: $header,
             tables: $tables,
         );
+    }
+
+    /**
+     * Whether the line opens a new XER record (header, table, fields, row or end marker).
+     */
+    private function startsWithRecordPrefix(string $line): bool
+    {
+        foreach (['ERMHDR', '%T', '%F', '%R', '%E'] as $prefix) {
+            if (str_starts_with($line, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Append a continuation line of a multi-line row to the last field value of
+     * the current table's most recent row.
+     *
+     * P6 writes values containing line breaks (for example CALENDAR.clndr_data)
+     * across several physical lines. Lines seen before any row of a table exist
+     * are ignored.
+     *
+     * @param  Collection<string, Collection<int, array<string, string>>>  $tables
+     */
+    private function appendContinuationLine(Collection $tables, ?string $currentTable, string $line): void
+    {
+        if (! $currentTable || ! $tables->has($currentTable)) {
+            return;
+        }
+
+        $tableRows = $tables->get($currentTable);
+
+        if ($tableRows->isEmpty()) {
+            return;
+        }
+
+        $lastRowIndex = $tableRows->keys()->last();
+        $lastRow = $tableRows->get($lastRowIndex);
+        $lastField = array_key_last($lastRow);
+
+        if ($lastField === null) {
+            return;
+        }
+
+        $lastRow[$lastField] .= "\n".$line;
+        $tableRows->put($lastRowIndex, $lastRow);
     }
 }
