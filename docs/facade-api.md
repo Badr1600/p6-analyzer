@@ -25,7 +25,7 @@ The central class for all operations. Can be used standalone (without Laravel) o
 | `relationshipAnalysis()` | `array` | `RelationshipAnalyzer` |
 | `scheduleVariance(ParsedXerData $master)` | `array` | `ScheduleVarianceCalculator` |
 | `scheduleHealth(?string $dataDate)` | `array` | `ScheduleHealthChecker` |
-| `resourceUtilization(string $period, ?float $dailyLimit)` | `array` | `ResourceUtilizationAnalyzer` |
+| `resourceUtilization(string $period, ?float $dailyLimit, ?int $weekStartsOn)` | `array` | `ResourceUtilizationAnalyzer` |
 | `wbsAnalysis()` | `array` | `WbsAnalyzer` |
 | `lookahead(string $dataDate, int $weeks)` | `array` | `LookaheadGenerator` |
 | `workPackages()` | `array` | `WorkPackageSummarizer` |

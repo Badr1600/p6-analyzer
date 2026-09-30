@@ -214,6 +214,13 @@ test('resourceUtilization() custom daily limit is applied', function () {
     expect(count($strict['over_allocations']))->toBeGreaterThanOrEqual(count($unlimited['over_allocations']));
 });
 
+test('resourceUtilization() passes weekStartsOn through to the analyzer', function () {
+    $monday = loadedManager()->resourceUtilization('week', null, weekStartsOn: 1);
+    $saturday = loadedManager()->resourceUtilization('week', null, weekStartsOn: 6);
+
+    expect($monday['utilization'])->not->toBe($saturday['utilization']);
+});
+
 test('wbsAnalysis() returns total_wbs_elements', function () {
     $result = loadedManager()->wbsAnalysis();
 

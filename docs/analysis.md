@@ -107,9 +107,15 @@ $result = $analyzer->scheduleHealth('2024-01-15');
 ```php
 $result = $analyzer->resourceUtilization('week', 8.0);
 // ['utilization', 'over_allocations', 'total_resources_analyzed']
+
+$result = $analyzer->resourceUtilization('week', 8.0, weekStartsOn: 6); // weeks start on Saturday
 ```
 
 Supported periods: `'day'`, `'week'`, `'month'`.
+
+`weekStartsOn` (optional, `'week'` period only) is Carbon's day number, `0` (Sunday) to `6` (Saturday). It groups
+each `'week'` key (`'Y-m-d (Week)'`) on the given day. Left `null` (the default), weeks start on the Carbon locale's
+first day (Monday for `en`) — unchanged from before 2.3.0. `'day'` and `'month'` ignore it.
 
 ## WBS Analysis (`WbsAnalyzer`)
 
