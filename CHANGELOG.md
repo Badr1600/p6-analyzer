@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-29
+
+### Added
+- `ResourceUtilizationAnalyzer::calculate()` and `P6AnalyzerManager::resourceUtilization()` accept an optional
+  `weekStartsOn` day number (0 Sunday to 6 Saturday) for the `week` period. Without it weeks start as before, on
+  the Carbon locale's first day.
+
 ## [2.2.0] - 2026-09-27
 
 ### Fixed

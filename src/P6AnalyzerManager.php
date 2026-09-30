@@ -202,13 +202,15 @@ class P6AnalyzerManager
     /**
      * Run resource utilization analysis.
      *
+     * @param  int|null  $weekStartsOn  The day the 'week' period starts on: Carbon's day number, 0 (Sunday) to 6
+     *                                  (Saturday). Null (the default) keeps the Carbon locale's first day.
      * @return array{utilization: array, over_allocations: array, total_resources_analyzed: int}
      */
-    public function resourceUtilization(string $period = 'week', ?float $dailyLimit = null): array
+    public function resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null): array
     {
         $this->ensureLoaded();
 
-        return (new ResourceUtilizationAnalyzer)->calculate($this->data, $period, $dailyLimit);
+        return (new ResourceUtilizationAnalyzer)->calculate($this->data, $period, $dailyLimit, $weekStartsOn);
     }
 
     /**

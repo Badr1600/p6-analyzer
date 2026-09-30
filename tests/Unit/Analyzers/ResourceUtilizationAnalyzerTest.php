@@ -187,6 +187,42 @@ test('week period groups with (Week) suffix', function () {
     expect($keys[0])->toContain('(Week)');
 });
 
+test('week period keys and hours follow weekStartsOn', function (?int $weekStartsOn, array $expected) {
+    // Friday 2026-10-02 to Monday 2026-10-05, 32 h total (8 h a day across the 4 calendar days).
+    $data = makeResourceData(
+        tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'target_start_date' => '2026-10-02 00:00:00', 'target_end_date' => '2026-10-05 00:00:00', 'target_drtn_hr_cnt' => '32']],
+        taskrsrc: [['task_id' => 'T1', 'rsrc_id' => 'R1', 'target_qty' => '32']],
+        rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John']],
+    );
+
+    $utilization = (new ResourceUtilizationAnalyzer)->calculate($data, 'week', weekStartsOn: $weekStartsOn)['utilization']['John'];
+
+    expect($utilization)->toBe($expected)
+        ->and(array_sum($utilization))->toBe(32.0);
+})->with([
+    'Saturday (6)' => [6, ['2026-09-26 (Week)' => 8.0, '2026-10-03 (Week)' => 24.0]],
+    'Sunday (0)' => [0, ['2026-09-27 (Week)' => 16.0, '2026-10-04 (Week)' => 16.0]],
+    'Monday (1)' => [1, ['2026-09-28 (Week)' => 24.0, '2026-10-05 (Week)' => 8.0]],
+    'null (locale default, Monday under en)' => [null, ['2026-09-28 (Week)' => 24.0, '2026-10-05 (Week)' => 8.0]],
+]);
+
+test('weekStartsOn outside 0-6 throws', function (int $weekStartsOn) {
+    (new ResourceUtilizationAnalyzer)->calculate(makeResourceData(), 'week', weekStartsOn: $weekStartsOn);
+})->with([7, -1])->throws(InvalidArgumentException::class, 'weekStartsOn must be a day number from 0 (Sunday) to 6 (Saturday).');
+
+test('weekStartsOn is ignored for the month period', function () {
+    $data = makeResourceData(
+        tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'target_start_date' => '2026-10-02 00:00:00', 'target_end_date' => '2026-10-05 00:00:00', 'target_drtn_hr_cnt' => '32']],
+        taskrsrc: [['task_id' => 'T1', 'rsrc_id' => 'R1', 'target_qty' => '32']],
+        rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John']],
+    );
+
+    $withOption = (new ResourceUtilizationAnalyzer)->calculate($data, 'month', weekStartsOn: 6)['utilization'];
+    $withoutOption = (new ResourceUtilizationAnalyzer)->calculate($data, 'month', weekStartsOn: null)['utilization'];
+
+    expect($withOption)->toBe($withoutOption);
+});
+
 test('activity with start after end is skipped', function () {
     $data = makeResourceData(
         tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'target_start_date' => '2024-01-10 00:00:00', 'target_end_date' => '2024-01-01 00:00:00', 'target_drtn_hr_cnt' => '8']],

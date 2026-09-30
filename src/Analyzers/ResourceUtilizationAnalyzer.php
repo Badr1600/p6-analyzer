@@ -13,10 +13,17 @@ class ResourceUtilizationAnalyzer
     /**
      * @param  string  $period  'day', 'week', or 'month'
      * @param  float|null  $dailyLimit  Override the daily over-allocation limit (hours). Falls back to config, then 8.
+     * @param  int|null  $weekStartsOn  The day the 'week' period starts on: Carbon's day number, 0 (Sunday) to 6
+     *                                  (Saturday). Only the 'week' period uses it; 'day' and 'month' ignore it. Left null (the default), weeks
+     *                                  start on the Carbon locale's first day (Monday for 'en') — the pre-2.3.0 behaviour, unchanged.
      * @return array{utilization: array, over_allocations: array, total_resources_analyzed: int}
      */
-    public function calculate(ParsedXerData $data, string $period = 'week', ?float $dailyLimit = null): array
+    public function calculate(ParsedXerData $data, string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null): array
     {
+        if ($weekStartsOn !== null && ($weekStartsOn < 0 || $weekStartsOn > 6)) {
+            throw new \InvalidArgumentException('weekStartsOn must be a day number from 0 (Sunday) to 6 (Saturday).');
+        }
+
         $dailyLimit = $dailyLimit ?? $this->configValue('resource_overallocation_daily_limit', 8);
         $activities = $data->getActivities()->keyBy('id');
         $assignments = $data->getTable('TASKRSRC');
@@ -64,7 +71,7 @@ class ResourceUtilizationAnalyzer
 
             $current = $start->copy();
             while ($current->lessThanOrEqualTo($end)) {
-                $periodKey = $this->getPeriodKey($current, $period);
+                $periodKey = $this->getPeriodKey($current, $period, $weekStartsOn);
 
                 if (! isset($utilization[$rsrcName])) {
                     $utilization[$rsrcName] = [];
@@ -99,12 +106,14 @@ class ResourceUtilizationAnalyzer
     /**
      * Get the period key for grouping. Uses copy() to avoid mutating the original Carbon instance.
      */
-    private function getPeriodKey(Carbon $date, string $period): string
+    private function getPeriodKey(Carbon $date, string $period, ?int $weekStartsOn): string
     {
         return match ($period) {
             'day' => $date->toDateString(),
             'month' => $date->format('Y-m'),
-            default => $date->copy()->startOfWeek()->toDateString().' (Week)',
+            default => $weekStartsOn === null
+                ? $date->copy()->startOfWeek()->toDateString().' (Week)'
+                : $date->copy()->startOfWeek($weekStartsOn)->toDateString().' (Week)',
         };
     }
 
