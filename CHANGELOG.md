@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-16
+
+### Added
+- `ResourceUtilizationAnalyzer::calculate()` and `P6AnalyzerManager::resourceUtilization()` count role-only
+  assignments (TASKRSRC rows with an empty `rsrc_id` and a `role_id`) by role, with no RSRC table needed. They land in
+  `utilization` under `role:{role_id}`, and a new `roles` map describes each bucket (`kind`, `role_id`, `label`). The
+  label comes from the new optional trailing `roleLabels` argument (`role_id => label`), else `ROLES.role_short_name`,
+  else `Role {id}`. Role over-allocations also carry `kind` and `label`. Resource output is unchanged.
+
 ## [2.3.0] - 2026-09-29
 
 ### Added

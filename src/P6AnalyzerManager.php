@@ -204,13 +204,14 @@ class P6AnalyzerManager
      *
      * @param  int|null  $weekStartsOn  The day the 'week' period starts on: Carbon's day number, 0 (Sunday) to 6
      *                                  (Saturday). Null (the default) keeps the Carbon locale's first day.
-     * @return array{utilization: array, over_allocations: array, total_resources_analyzed: int}
+     * @param  array<int|string, string>  $roleLabels  Display labels for role-only lines, keyed by role_id.
+     * @return array{utilization: array, over_allocations: array, total_resources_analyzed: int, roles: array<string, array{kind: string, role_id: string, label: string}>}
      */
-    public function resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null): array
+    public function resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null, array $roleLabels = []): array
     {
         $this->ensureLoaded();
 
-        return (new ResourceUtilizationAnalyzer)->calculate($this->data, $period, $dailyLimit, $weekStartsOn);
+        return (new ResourceUtilizationAnalyzer)->calculate($this->data, $period, $dailyLimit, $weekStartsOn, $roleLabels);
     }
 
     /**

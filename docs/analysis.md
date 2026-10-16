@@ -106,7 +106,7 @@ $result = $analyzer->scheduleHealth('2024-01-15');
 
 ```php
 $result = $analyzer->resourceUtilization('week', 8.0);
-// ['utilization', 'over_allocations', 'total_resources_analyzed']
+// ['utilization', 'over_allocations', 'total_resources_analyzed', 'roles']
 
 $result = $analyzer->resourceUtilization('week', 8.0, weekStartsOn: 6); // weeks start on Saturday
 ```
@@ -116,6 +116,17 @@ Supported periods: `'day'`, `'week'`, `'month'`.
 `weekStartsOn` (optional, `'week'` period only) is Carbon's day number, `0` (Sunday) to `6` (Saturday). It groups
 each `'week'` key (`'Y-m-d (Week)'`) on the given day. Left `null` (the default), weeks start on the Carbon locale's
 first day (Monday for `en`) — unchanged from before 2.3.0. `'day'` and `'month'` ignore it.
+
+A line with no resource but a role (`rsrc_id` empty, `role_id` set) is counted by role, with no `RSRC` row needed. Its
+bucket key in `utilization` is `role:{role_id}`, and `roles['role:{role_id}']` describes it:
+`['kind' => 'role', 'role_id' => '12', 'label' => 'Planner']`. The label is the optional trailing `$roleLabels`
+argument (`role_id => label`), else `ROLES.role_short_name`, else `Role {id}`. Over-allocations of a role carry the
+bucket key in `resource` plus `kind` and `label`. Resource buckets and their output are unchanged; `roles` is empty
+when no line is role-only.
+
+```php
+$result = $analyzer->resourceUtilization('week', 8.0, null, null, [12 => 'Planner']);
+```
 
 ## WBS Analysis (`WbsAnalyzer`)
 
