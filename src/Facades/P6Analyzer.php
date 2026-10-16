@@ -15,7 +15,7 @@ use TeckFuture\P6Analyzer\P6AnalyzerManager;
  * @method static array earnedValue(?string $dataDate = null)
  * @method static array relationshipAnalysis()
  * @method static array scheduleHealth(?string $dataDate = null)
- * @method static array resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null)
+ * @method static array resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null, array $roleLabels = [])
  * @method static array wbsAnalysis()
  * @method static array lookahead(string $dataDate, int $weeks = 3)
  * @method static array workPackages()

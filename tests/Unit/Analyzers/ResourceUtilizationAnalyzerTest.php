@@ -450,3 +450,82 @@ test('prefers assignment dates over activity dates when present', function () {
         ->and($result['utilization']['Welder']['2024-03-11'])->toEqual(8.0)
         ->and(isset($result['utilization']['Welder']['2024-03-01']))->toBeFalse();
 });
+
+// ---------------------------------------------------------------
+// Role-only lines
+// ---------------------------------------------------------------
+
+function makeRoleData(array $taskrsrc, array $rsrc = [], ?array $roles = null): ParsedXerData
+{
+    $tables = [
+        'TASK' => collect([['task_id' => 'T1', 'task_name' => 'Pour', 'status_code' => 'TK_Active', 'target_start_date' => '2024-01-01', 'target_end_date' => '2024-01-02', 'target_drtn_hr_cnt' => '16']]),
+        'TASKRSRC' => collect($taskrsrc),
+        'RSRC' => collect($rsrc),
+    ];
+
+    if ($roles !== null) {
+        $tables['ROLES'] = collect($roles);
+    }
+
+    return new ParsedXerData(header: '', tables: collect($tables));
+}
+
+test('role-only line is bucketed by role using the provided label', function () {
+    $data = makeRoleData(
+        [['task_id' => 'T1', 'rsrc_id' => '', 'role_id' => '12', 'target_qty' => '16']],
+        roles: [['role_id' => '12', 'role_name' => 'Planner', 'role_short_name' => 'PLN']],
+    );
+
+    $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'day', null, null, [12 => 'Lead planner']);
+
+    expect($result['utilization'])->toBe(['role:12' => ['2024-01-01' => 8.0, '2024-01-02' => 8.0]])
+        ->and($result['roles'])->toBe(['role:12' => ['kind' => 'role', 'role_id' => '12', 'label' => 'Lead planner']])
+        ->and($result['total_resources_analyzed'])->toBe(1)
+        ->and($result['over_allocations'])->toBeEmpty();
+});
+
+test('role label falls back to ROLES short name then Role id', function () {
+    $data = makeRoleData(
+        [
+            ['task_id' => 'T1', 'rsrc_id' => '', 'role_id' => '12', 'target_qty' => '8'],
+            ['task_id' => 'T1', 'rsrc_id' => '', 'role_id' => '13', 'target_qty' => '8'],
+        ],
+        roles: [['role_id' => '12', 'role_name' => 'Planner', 'role_short_name' => 'PLN']],
+    );
+
+    $roles = (new ResourceUtilizationAnalyzer)->calculate($data)['roles'];
+
+    expect($roles['role:12']['label'])->toBe('PLN')
+        ->and($roles['role:13']['label'])->toBe('Role 13');
+});
+
+test('role over-allocation carries the bucket key, kind and label', function () {
+    $data = makeRoleData([['task_id' => 'T1', 'rsrc_id' => '', 'role_id' => '12', 'target_qty' => '40']]);
+
+    $over = (new ResourceUtilizationAnalyzer)->calculate($data, 'day', 8.0, null, [12 => 'Planner'])['over_allocations'];
+
+    expect($over[0])->toMatchArray(['resource' => 'role:12', 'kind' => 'role', 'label' => 'Planner', 'qty_per_day' => 20.0]);
+});
+
+test('mixed resource and role lines keep the resource shape unchanged', function () {
+    $data = makeRoleData(
+        [
+            ['task_id' => 'T1', 'rsrc_id' => 'R1', 'role_id' => '12', 'target_qty' => '16'],
+            ['task_id' => 'T1', 'rsrc_id' => '', 'role_id' => '12', 'target_qty' => '8'],
+        ],
+        rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John']],
+    );
+
+    $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'day');
+
+    expect($result['utilization']['John'])->toBe(['2024-01-01' => 8.0, '2024-01-02' => 8.0])
+        ->and($result['utilization']['role:12'])->toBe(['2024-01-01' => 4.0, '2024-01-02' => 4.0])
+        ->and(array_keys($result['roles']))->toBe(['role:12'])
+        ->and($result['total_resources_analyzed'])->toBe(2);
+});
+
+test('role line with unknown activity or no dates is skipped', function () {
+    $data = makeRoleData([['task_id' => 'GHOST', 'rsrc_id' => '', 'role_id' => '12', 'target_qty' => '8']]);
+
+    expect((new ResourceUtilizationAnalyzer)->calculate($data)['roles'])->toBeEmpty();
+});
