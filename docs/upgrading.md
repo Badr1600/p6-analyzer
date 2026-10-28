@@ -1,40 +1,50 @@
-# Upgrading from In-App Code
+# Upgrading from 1.x to 2.x
 
-If you're migrating from `App\Support\P6Analyzer` to this package, follow these steps.
+Version 2.0 rebuilt earned value management (EVM) around explicit measurement methods. Code that
+calls `earnedValue()` or `EarnedValueCalculator` needs the checks below; nothing else changed.
 
-## 1. Install the Package
+## 1. Renamed result keys
 
-```bash
-composer require teckfuture/laravel-p6-analyzer
+| 1.x key | 2.x replacement |
+|---|---|
+| `source` | `method` (`cost`, `labor_units` or `duration`) and `unit` |
+| `has_cost_data`, `cost_data_coverage` | `coverage` (measurable activities vs activities that carry data) |
+| `duration_fallback_count` | `actual_cost_sources` (tracked / inferred / status / none counts) |
+
+## 2. `cpi`, `spi` and `tcpi` can be `null`
+
+When a denominator is zero these indices are now `null` instead of a fake `1.0`. Handle `null`
+before formatting or comparing them.
+
+## 3. One measurement method per calculation
+
+1.x fell back from cost to duration activity by activity. 2.x applies one method to the whole
+calculation, and activities without data for that method are counted in `coverage` instead.
+If you relied on a specific basis, pass it explicitly:
+
+```php
+use TeckFuture\P6Analyzer\Enums\EvmMethod;
+
+$evm = $analyzer->earnedValue('2024-01-15', EvmMethod::Cost);
 ```
 
-## 2. Update Namespace Imports
+Without a method, `auto` (config `p6-analyzer.evm.default_method`) picks the best-covered method
+for each project.
 
-Replace all `App\Support\P6Analyzer\...` imports with `TeckFuture\P6Analyzer\...`:
+## 4. Calendar-hours actual cost removed
 
-| Old Namespace | New Namespace |
-|---|---|
-| `App\Support\P6Analyzer\CriticalPathCalculator` | `TeckFuture\P6Analyzer\Analyzers\CriticalPathCalculator` |
-| `App\Support\P6Analyzer\FloatAnalyzer` | `TeckFuture\P6Analyzer\Analyzers\FloatAnalyzer` |
-| `App\Support\P6Analyzer\DCMA14PointChecker` | `TeckFuture\P6Analyzer\Analyzers\DCMA14PointChecker` |
-| `App\Support\P6Analyzer\EarnedValueCalculator` | `TeckFuture\P6Analyzer\Analyzers\EarnedValueCalculator` |
-| `App\Support\P6Analyzer\RelationshipAnalyzer` | `TeckFuture\P6Analyzer\Analyzers\RelationshipAnalyzer` |
-| `App\Support\P6Analyzer\ScheduleVarianceCalculator` | `TeckFuture\P6Analyzer\Analyzers\ScheduleVarianceCalculator` |
-| `App\Support\P6Analyzer\ScheduleHealthChecker` | `TeckFuture\P6Analyzer\Analyzers\ScheduleHealthChecker` |
-| `App\Support\P6Analyzer\DTOs\ActivityData` | `TeckFuture\P6Analyzer\DTOs\ActivityData` |
-| `App\Support\P6Analyzer\DTOs\RelationshipData` | `TeckFuture\P6Analyzer\DTOs\RelationshipData` |
-| `App\Support\P6Analyzer\DTOs\ProjectData` | `TeckFuture\P6Analyzer\DTOs\ProjectData` |
-| `App\Support\P6Analyzer\DTOs\ParsedXerData` | `TeckFuture\P6Analyzer\DTOs\ParsedXerData` |
-| `App\Support\P6Analyzer\XerParser` | `TeckFuture\P6Analyzer\IO\XerParser` |
-| `App\Support\P6Analyzer\XerExporter` | `TeckFuture\P6Analyzer\IO\XerExporter` |
+Duration-based actual cost no longer counts calendar hours (nights and weekends) against work-hour
+budgets. The duration method now infers actual cost from `remain_drtn_hr_cnt` and activity status.
 
-## 3. Remove Old Code
+## 5. New `evm` configuration block
 
-Delete the `app/Support/P6Analyzer/` directory and `tests/Unit/P6Analyzer/` directory.
+If you published `config/p6-analyzer.php`, copy the `evm` block from the package's config file
+(`default_method`, `auto_coverage_threshold`, `infer_actuals_from_remaining`,
+`respect_complete_pct_type`, `status_overrides_percent`). Re-publishing with `--force` also works,
+but it overwrites your own changes:
 
-## 4. Breaking Changes
+```bash
+php artisan vendor:publish --tag=p6-analyzer-config --force
+```
 
-- DTOs no longer extend `Spatie\LaravelData\Data`. They are plain `final` PHP classes with `readonly` properties.
-- `XerParser` now throws `XerParseException` instead of generic `Exception`.
-- Status codes are now automatically normalized (e.g., `TK_Complete` → `Completed`).
-- Analyzers are sub-namespaced: `Analyzers\`, `IO\`, `DTOs\`.
+See the [2.0.0 entry in the CHANGELOG](../CHANGELOG.md) for the full list of changes.

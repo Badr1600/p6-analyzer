@@ -1,5 +1,7 @@
 # Laravel P6 Analyzer
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/teckfuture/laravel-p6-analyzer.svg)](https://packagist.org/packages/teckfuture/laravel-p6-analyzer)
+[![Tests](https://github.com/Badr1600/p6-analyzer/actions/workflows/tests.yml/badge.svg)](https://github.com/Badr1600/p6-analyzer/actions/workflows/tests.yml)
 [![PHP ^8.3](https://img.shields.io/badge/PHP-%5E8.3-8892BF.svg)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -23,6 +25,11 @@ A standalone Laravel package for parsing, analyzing, and exporting **Primavera P
 - **Snapshot Comparison** — Diff two XER files to detect added/deleted/modified activities
 - **XER Export** — Write modified schedules back to XER format
 - **CSV Export** — Export any parsed table to CSV
+
+## Requirements
+
+- PHP 8.3 or newer
+- Laravel 12 or 13
 
 ## Installation
 
@@ -136,15 +143,16 @@ Detailed documentation is available in the [docs/](docs/) directory:
 - [Modifying Schedules](docs/mutations.md)
 - [Exporting Data](docs/exporting.md)
 - [Facade & Manager API](docs/facade-api.md)
-- [Upgrading from In-App Code](docs/upgrading.md)
+- [Upgrading from 1.x to 2.x](docs/upgrading.md)
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 ## Contributing
 
-1. Fork and clone
-2. Create a feature branch
-3. Write tests for your changes
-4. Run `./vendor/bin/pest` and `./vendor/bin/pint`
-5. Submit a pull request
+See [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately as described in
+[SECURITY.md](SECURITY.md).
 
 ## License
 
