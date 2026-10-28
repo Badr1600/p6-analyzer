@@ -362,10 +362,7 @@ test('week period key is the week start date followed by a (Week) suffix', funct
 // ---------------------------------------------------------------
 
 test('daily limit uses config value if present and no override provided', function () {
-    // Requires illuminate/support Config facade, which should be present in Pest Laravel testing
-    if (class_exists(Config::class)) {
-        Config::set('p6-analyzer.resource_overallocation_daily_limit', 4.0);
-    }
+    Config::set('p6-analyzer.resource_overallocation_daily_limit', 4.0);
 
     $data = makeResourceData(
         tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'task_name' => 'A1', 'target_start_date' => '2024-01-01 00:00:00', 'target_end_date' => '2024-01-01 00:00:00']],
@@ -376,13 +373,8 @@ test('daily limit uses config value if present and no override provided', functi
     // No daily limit provided to calculate()
     $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'day');
 
-    if (class_exists(Config::class)) {
-        // If config was used, it's over allocated (5 > 4)
-        expect($result['over_allocations'])->not->toBeEmpty();
-    } else {
-        // If config wasn't used, fallback is 8, so 5 is not over allocated
-        expect($result['over_allocations'])->toBeEmpty();
-    }
+    // Over-allocated only because the configured limit (4) was applied; the built-in default of 8 would not flag 5
+    expect($result['over_allocations'])->not->toBeEmpty();
 });
 
 // ---------------------------------------------------------------

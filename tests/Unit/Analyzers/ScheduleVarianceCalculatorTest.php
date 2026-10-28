@@ -289,7 +289,8 @@ test('runs against real XER fixture without error', function () {
     $activities = $data->getActivities();
     $result = (new ScheduleVarianceCalculator)->calculate($activities, $activities);
 
-    // Same data — slipping count may vary but total compared equals activity count
+    // A schedule compared with itself: every activity matches its own row and none slips
     expect($result['total_activities_compared'])->toBeGreaterThan(0)
-        ->and($result['slipping_activities_count'])->toBeGreaterThanOrEqual(0);
+        ->and($result['total_activities_compared'])->toBe($activities->count())
+        ->and($result['slipping_activities_count'])->toBe(0);
 });

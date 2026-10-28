@@ -209,18 +209,17 @@ test('null float field returns null', function () {
 // complete_pct
 // ---------------------------------------------------------------
 
-test('complete_pct is used when phys_comp_pct is absent', function () {
+test('complete_pct is read from raw data', function () {
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'complete_pct' => '75',
         'target_drtn_hr_cnt' => '40',
-        // No phys_comp_pct
     ]);
 
     expect($activity->complete_pct)->toBe(75.0);
 });
 
-test('phys_comp_pct is preferred over complete_pct when both set', function () {
+test('phys_comp_pct and complete_pct are read independently when both are set', function () {
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'phys_comp_pct' => '90',
@@ -375,7 +374,7 @@ test('task_name is used when name is absent and rawData has no task_name', funct
     expect($activity->name)->toBe('My Explicit Task Name');
 });
 
-test('name key takes precedence over task_name when both present', function () {
+test('task_name takes precedence over name when both are present', function () {
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'task_name' => 'From task_name',
@@ -383,7 +382,6 @@ test('name key takes precedence over task_name when both present', function () {
         'raw_data' => ['task_id' => '1'],
     ]);
 
-    // task_name wins in the chain
     expect($activity->name)->toBe('From task_name');
 });
 

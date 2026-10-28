@@ -148,8 +148,9 @@ test('runs against real XER fixture without error', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new LookaheadGenerator)->generate($data, '2024-01-01', 3);
 
+    // The fixture schedule runs in 2026, so a window in early 2024 holds none of its activities
     expect($result['lookahead_weeks'])->toBe(3)
-        ->and($result['activity_count'])->toBeGreaterThanOrEqual(0);
+        ->and($result['activity_count'])->toBe(0);
 });
 
 // ---------------------------------------------------------------

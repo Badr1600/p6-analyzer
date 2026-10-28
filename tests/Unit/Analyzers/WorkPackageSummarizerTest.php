@@ -170,10 +170,8 @@ test('runs against real XER fixture without error', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new WorkPackageSummarizer)->summarize($data);
 
-    expect($result)->toBeArray();
-    if (count($result) > 0) {
-        expect($result[0])->toHaveKeys(['name', 'activity_count', 'total_duration_hr', 'total_cost', 'completed_activities', 'percent_complete_by_count']);
-    }
+    expect($result)->not->toBeEmpty()
+        ->and($result[0])->toHaveKeys(['name', 'activity_count', 'total_duration_hr', 'total_cost', 'completed_activities', 'percent_complete_by_count']);
 });
 
 // ---------------------------------------------------------------

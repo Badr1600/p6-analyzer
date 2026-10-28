@@ -6,7 +6,7 @@ use TeckFuture\P6Analyzer\IO\XerParser;
 
 covers(XerExporter::class);
 
-test('round-trip: parse → export → parse yields same data', function () {
+test('round-trip: parse → export → parse preserves the TASK and PROJECT row counts', function () {
     $parser = new XerParser;
     $original = $parser->parseFile($this->fixturePath());
 
@@ -24,16 +24,19 @@ test('it exports to a file and back', function () {
     $data = $parser->parseFile($this->fixturePath());
 
     $tmpFile = tempnam(sys_get_temp_dir(), 'xer_export_test_');
-    $exporter = new XerExporter;
-    $result = $exporter->exportToFile($data, $tmpFile);
 
-    expect($result)->toBeTrue()
-        ->and(file_exists($tmpFile))->toBeTrue();
+    try {
+        $exporter = new XerExporter;
+        $result = $exporter->exportToFile($data, $tmpFile);
 
-    $reparsed = $parser->parseFile($tmpFile);
-    expect($reparsed->getTable('TASK')->count())->toBe($data->getTable('TASK')->count());
+        expect($result)->toBeTrue()
+            ->and(file_get_contents($tmpFile))->toBe($exporter->export($data));
 
-    unlink($tmpFile);
+        $reparsed = $parser->parseFile($tmpFile);
+        expect($reparsed->getTable('TASK')->count())->toBe($data->getTable('TASK')->count());
+    } finally {
+        unlink($tmpFile);
+    }
 });
 
 // ---------------------------------------------------------------

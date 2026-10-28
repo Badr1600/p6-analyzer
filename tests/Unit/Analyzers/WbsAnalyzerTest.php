@@ -86,7 +86,7 @@ test('total_cost aggregates target costs for wbs', function () {
     expect((new WbsAnalyzer)->calculate($data)['wbs_metrics']['W1']['total_cost'])->toBe(1500.0);
 });
 
-test('activities with no wbs_id go to unassigned bucket', function () {
+test('activities with no wbs_id do not create wbs elements', function () {
     $data = makeWbsData(
         tasks: [
             ['task_id' => '1', 'status_code' => 'TK_Active', 'target_drtn_hr_cnt' => '40'],
@@ -94,9 +94,9 @@ test('activities with no wbs_id go to unassigned bucket', function () {
     );
 
     $result = (new WbsAnalyzer)->calculate($data);
-    // No WBS table entries, but the unassigned bucket should exist internally
-    // wbs_metrics will be empty since PROJWBS is empty
-    expect($result['total_wbs_elements'])->toBe(0);
+    // wbs_metrics is built from PROJWBS, so an activity without a wbs_id never adds an element of its own
+    expect($result['total_wbs_elements'])->toBe(0)
+        ->and($result['wbs_metrics'])->toBeEmpty();
 });
 
 test('wbs missing name defaults to Unknown', function () {
@@ -111,6 +111,7 @@ test('runs against real XER fixture without error', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new WbsAnalyzer)->calculate($data);
 
-    expect($result['total_wbs_elements'])->toBeGreaterThanOrEqual(0)
-        ->and($result['wbs_metrics'])->toBeArray();
+    // The fixture's PROJWBS table has 19 elements, each with its own metrics entry
+    expect($result['total_wbs_elements'])->toBe(19)
+        ->and($result['wbs_metrics'])->toHaveCount(19);
 });

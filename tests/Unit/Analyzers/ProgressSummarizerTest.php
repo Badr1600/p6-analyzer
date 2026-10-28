@@ -202,7 +202,7 @@ test('runs against real XER fixture without error', function () {
         + $result['status_counts']['completed'];
 
     expect($sum)->toBe($result['total_activities'])
-        ->and($result['overall_percent_complete_by_duration'])->toBeGreaterThanOrEqual(0);
+        ->and($result['overall_percent_complete_by_duration'])->toBe(3.24);
 });
 
 // ---------------------------------------------------------------

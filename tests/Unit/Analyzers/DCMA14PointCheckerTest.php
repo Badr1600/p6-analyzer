@@ -9,9 +9,9 @@ test('it calculates DCMA score from real XER data', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new DCMA14PointChecker)->calculate($data->getActivities());
 
+    // 193 of the 414 incomplete activities have high float: (46.62% - 5%) is deducted from 100
     expect($result)->toHaveKeys(['total_activities', 'incomplete_activities', 'negative_float_count', 'overall_score'])
-        ->and($result['overall_score'])->toBeGreaterThanOrEqual(0)
-        ->and($result['overall_score'])->toBeLessThanOrEqual(100);
+        ->and($result['overall_score'])->toBe(58.38);
 });
 
 test('it accepts a data date for date validation', function () {
@@ -21,11 +21,23 @@ test('it accepts a data date for date validation', function () {
     expect($result)->toHaveKey('invalid_dates_count');
 });
 
-test('it clamps score between 0 and 100', function () {
+test('an empty schedule scores 100', function () {
     $result = (new DCMA14PointChecker)->calculate(collect());
 
-    expect($result['overall_score'])->toBeGreaterThanOrEqual(0)
-        ->and($result['overall_score'])->toBeLessThanOrEqual(100);
+    expect($result['overall_score'])->toBe(100);
+});
+
+test('it clamps the score at 0 when the penalties exceed 100', function () {
+    // Every activity has negative float: 100% x the default weight of 2 is a 200 point penalty
+    $activities = collect([
+        ActivityData::fromModelOrArray(['task_id' => '1', 'total_float_hr_cnt' => '-8']),
+        ActivityData::fromModelOrArray(['task_id' => '2', 'total_float_hr_cnt' => '-16']),
+    ]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities);
+
+    expect($result['negative_float_pct'])->toBe(100.0)
+        ->and($result['overall_score'])->toBe(0);
 });
 
 // ---------------------------------------------------------------

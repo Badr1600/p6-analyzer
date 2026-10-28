@@ -46,23 +46,6 @@ test('fromData() accepts pre-parsed data', function () {
 // ensureLoaded() guard — one test per public method
 // ---------------------------------------------------------------
 
-$guardedMethods = [
-    'criticalPath',
-    'floatAnalysis',
-    'dcma14Point',
-    'earnedValue',
-    'relationshipAnalysis',
-    'scheduleHealth',
-    'wbsAnalysis',
-    'workPackages',
-    'progress',
-    'report',
-    'exportXer',
-    'query',
-    'exportXerToFile' => ['path' => '/dev/null'],
-    'exportCsv' => ['table' => 'TASK'],
-];
-
 test('criticalPath() throws when no data loaded', function () {
     (new P6AnalyzerManager)->criticalPath();
 })->throws(RuntimeException::class, 'No XER data loaded');
@@ -157,7 +140,7 @@ test('criticalPath() with custom threshold returns more critical activities than
     $strict = $manager->criticalPath(0);
     $relaxed = $manager->criticalPath(160);
 
-    expect($relaxed['critical_activities_count'])->toBeGreaterThanOrEqual($strict['critical_activities_count']);
+    expect($relaxed['critical_activities_count'])->toBeGreaterThan($strict['critical_activities_count']);
 });
 
 test('floatAnalysis() returns non-empty distribution', function () {
@@ -167,13 +150,14 @@ test('floatAnalysis() returns non-empty distribution', function () {
         ->and($result['total_activities'])->toBeGreaterThan(0);
 });
 
-test('dcma14Point() overall_score is between 0 and 100', function () {
+test('dcma14Point() applies the data date when scoring', function () {
     $result = loadedManager()->dcma14Point('2024-01-15');
 
-    expect($result['overall_score'])->toBeGreaterThanOrEqual(0)->toBeLessThanOrEqual(100);
+    // The fixture scores 58.38 without a data date; at 2024-01-15 its invalid dates cost another 10 points
+    expect($result['overall_score'])->toBe(48.38);
 });
 
-test('earnedValue() returns CPI of 1.0 when no costs present', function () {
+test('earnedValue() returns the documented result keys', function () {
     $result = loadedManager()->earnedValue();
 
     expect($result)->toHaveKeys(['cpi', 'spi', 'earned_value', 'actual_cost', 'budget_at_completion']);
@@ -190,7 +174,8 @@ test('scheduleVariance() returns zero slippage when compared to self', function 
     $result = $manager->scheduleVariance($manager->getData());
 
     expect($result)->toHaveKeys(['total_activities_compared', 'slipping_activities_count', 'average_variance_days'])
-        ->and($result['slipping_activities_count'])->toBeGreaterThanOrEqual(0);
+        ->and($result['total_activities_compared'])->toBeGreaterThan(0)
+        ->and($result['slipping_activities_count'])->toBe(0);
 });
 
 test('scheduleHealth() returns required health keys', function () {
@@ -210,8 +195,9 @@ test('resourceUtilization() custom daily limit is applied', function () {
     $unlimited = loadedManager()->resourceUtilization('week', 999999);
     $strict = loadedManager()->resourceUtilization('week', 0.001);
 
-    // With near-zero limit every assignment is over-allocated
-    expect(count($strict['over_allocations']))->toBeGreaterThanOrEqual(count($unlimited['over_allocations']));
+    // With a near-zero limit every assignment is over-allocated; with a huge limit none is
+    expect($unlimited['over_allocations'])->toBeEmpty()
+        ->and($strict['over_allocations'])->not->toBeEmpty();
 });
 
 test('resourceUtilization() passes weekStartsOn through to the analyzer', function () {
@@ -234,12 +220,13 @@ test('lookahead() default weeks is 3', function () {
 });
 
 test('lookahead() respects custom week count', function () {
-    $three = loadedManager()->lookahead('2024-01-01', 3);
-    $six = loadedManager()->lookahead('2024-01-01', 6);
+    // The fixture schedule runs in 2026, so the window has to start inside it to hold any activities
+    $three = loadedManager()->lookahead('2026-06-01', 3);
+    $six = loadedManager()->lookahead('2026-06-01', 6);
 
     expect($three['lookahead_weeks'])->toBe(3)
         ->and($six['lookahead_weeks'])->toBe(6)
-        ->and($six['activity_count'])->toBeGreaterThanOrEqual($three['activity_count']);
+        ->and($six['activity_count'])->toBeGreaterThan($three['activity_count']);
 });
 
 test('workPackages() returns non-empty array from real data', function () {
@@ -249,14 +236,11 @@ test('workPackages() returns non-empty array from real data', function () {
     expect($result)->toBeArray()->not->toBeEmpty();
 });
 
-test('workPackages() each item has required keys when non-empty', function () {
+test('workPackages() each item has the required keys', function () {
     $result = loadedManager()->workPackages();
 
-    if (count($result) > 0) {
-        expect($result[0])->toHaveKeys(['name', 'activity_count', 'total_duration_hr', 'total_cost', 'percent_complete_by_count']);
-    } else {
-        expect($result)->toBeArray();
-    }
+    expect($result)->not->toBeEmpty()
+        ->each->toHaveKeys(['name', 'activity_count', 'total_duration_hr', 'total_cost', 'percent_complete_by_count']);
 });
 
 test('progress() total counts add up to total activities', function () {
@@ -300,13 +284,15 @@ test('exportXer() output contains required XER markers', function () {
 
 test('exportXerToFile() writes file and returns true', function () {
     $tmpFile = tempnam(sys_get_temp_dir(), 'p6manager_test_');
-    $result = loadedManager()->exportXerToFile($tmpFile);
 
-    expect($result)->toBeTrue()
-        ->and(file_exists($tmpFile))->toBeTrue()
-        ->and(file_get_contents($tmpFile))->toContain('ERMHDR');
+    try {
+        $result = loadedManager()->exportXerToFile($tmpFile);
 
-    unlink($tmpFile);
+        expect($result)->toBeTrue()
+            ->and(file_get_contents($tmpFile))->toContain('ERMHDR');
+    } finally {
+        unlink($tmpFile);
+    }
 });
 
 test('exportCsv() returns CSV with headers', function () {
