@@ -2,7 +2,6 @@
     "name": "teckfuture/laravel-p6-analyzer",
     "description": "A standalone Laravel package for parsing, analyzing, and exporting Primavera P6 XER schedule files.",
     "type": "library",
-    "version": "2.4.0",
     "license": "MIT",
     "minimum-stability": "stable",
     "keywords": ["laravel", "primavera", "p6", "xer", "schedule", "analysis", "dcma", "earned-value", "critical-path"],
