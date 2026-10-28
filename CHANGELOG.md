@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-10-28
+
 ### Added
 - A GitHub Actions workflow that runs the tests on PHP 8.3 and 8.4 against Laravel 12 and 13, with
   the lowest and the latest dependencies, and checks `composer.json` and code style.
