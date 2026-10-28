@@ -170,14 +170,12 @@ test('runs against real XER fixture without error', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new WorkPackageSummarizer)->summarize($data);
 
-    expect($result)->toBeArray();
-    if (count($result) > 0) {
-        expect($result[0])->toHaveKeys(['name', 'activity_count', 'total_duration_hr', 'total_cost', 'completed_activities', 'percent_complete_by_count']);
-    }
+    expect($result)->not->toBeEmpty()
+        ->and($result[0])->toHaveKeys(['name', 'activity_count', 'total_duration_hr', 'total_cost', 'completed_activities', 'percent_complete_by_count']);
 });
 
 // ---------------------------------------------------------------
-// percent_complete_by_count precision (kills DecrementInteger on * 100)
+// percent_complete_by_count rounding
 // ---------------------------------------------------------------
 
 test('percent_complete_by_count is 14.29 for 1 of 7 completed', function () {
@@ -209,25 +207,10 @@ test('percent_complete_by_count is 71.43 for 5 of 7 completed', function () {
 });
 
 // ---------------------------------------------------------------
-// activity_count > 0 guard (kills GreaterToGreaterOrEqual: > 0 → >= 0)
-// ---------------------------------------------------------------
-
-test('package with zero activities has percent_complete_by_count of 0', function () {
-    // This shouldn't happen in practice (WBS nodes without activities), but
-    // we test the guard to ensure > 0 check works
-    $data = makeWpData(tasks: [makeTask('1', 'W1')]);
-    $result = (new WorkPackageSummarizer)->summarize($data);
-
-    // 1 activity, 0 completed → 0%
-    expect($result[0]['percent_complete_by_count'])->toBe(0.0);
-});
-
-// ---------------------------------------------------------------
-// target_drtn_hr_cnt and target_cost null fallback (kills ?? 0 → -1)
+// A missing duration or cost counts as zero
 // ---------------------------------------------------------------
 
 test('activity with null duration contributes 0 to total_duration_hr', function () {
-    // Creates task without target_drtn_hr_cnt → ?? 0 path
     $data = makeWpData(tasks: [[
         'task_id' => '1',
         'status_code' => 'TK_Active',
@@ -237,7 +220,7 @@ test('activity with null duration contributes 0 to total_duration_hr', function 
 
     $result = (new WorkPackageSummarizer)->summarize($data);
 
-    expect($result[0]['total_duration_hr'])->toBe(0.0); // Not -1
+    expect($result[0]['total_duration_hr'])->toBe(0.0);
 });
 
 test('activity with null cost contributes 0 to total_cost', function () {
@@ -250,5 +233,5 @@ test('activity with null cost contributes 0 to total_cost', function () {
 
     $result = (new WorkPackageSummarizer)->summarize($data);
 
-    expect($result[0]['total_cost'])->toBe(0.0); // Not -1
+    expect($result[0]['total_cost'])->toBe(0.0);
 });

@@ -148,27 +148,24 @@ test('runs against real XER fixture without error', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new LookaheadGenerator)->generate($data, '2024-01-01', 3);
 
+    // The fixture schedule runs in 2026, so a window in early 2024 holds none of its activities
     expect($result['lookahead_weeks'])->toBe(3)
-        ->and($result['activity_count'])->toBeGreaterThanOrEqual(0);
+        ->and($result['activity_count'])->toBe(0);
 });
 
 // ---------------------------------------------------------------
-// Week count boundary (kills DecrementInteger/IncrementInteger on default 3)
+// Week count defaults and boundaries
 // ---------------------------------------------------------------
 
 test('default weeks is 3 (end_date is 3 weeks ahead when not specified)', function () {
-    // Kills DecrementInteger: default 3 → 2 (end would be 2024-01-15 not 2024-01-22)
-    // Kills IncrementInteger: default 3 → 4 (end would be 2024-01-29 not 2024-01-22)
+    // No explicit weeks argument: the default of 3 weeks ends on 2024-01-22
     $result = (new LookaheadGenerator)->generate(makeLookaheadData(), '2024-01-01');
-    // Note: no explicit weeks argument — tests the DEFAULT value
 
     expect($result['end_date'])->toBe('2024-01-22')
         ->and($result['lookahead_weeks'])->toBe(3);
 });
 
 test('1 week window ends exactly 7 days ahead', function () {
-
-    // Kills IncrementInteger: weeks=1 would still give 1-week window but wrong if mutated to 2
     $result = (new LookaheadGenerator)->generate(makeLookaheadData(), '2024-01-01', 1);
 
     expect($result['end_date'])->toBe('2024-01-08')
@@ -176,7 +173,7 @@ test('1 week window ends exactly 7 days ahead', function () {
 });
 
 test('activity just at window end is included', function () {
-    // Finish = exactly the endDate — kills GreaterToGreaterOrEqual/DecrementInteger on window
+    // Starts and finishes exactly on the window end date, which is still inside the window
     $data = makeLookaheadData(tasks: [
         ['task_id' => '1', 'status_code' => 'TK_Active', 'task_code' => 'E100',
             'task_name' => 'At End', 'target_start_date' => '2024-01-22 00:00:00', // exactly endDate
@@ -202,12 +199,11 @@ test('activity just before window start is excluded', function () {
 });
 
 // ---------------------------------------------------------------
-// Span check BooleanAndToBooleanOr (line 37)
+// Spanning the window means starting before it and finishing after it
 // ---------------------------------------------------------------
 
 test('activity that starts before but finishes before window does not span', function () {
-    // start < windowStart, end < windowStart → spans = false (both conditions must be true)
-    // BooleanAndToBooleanOr would make it spans = true if either condition is true
+    // start < windowStart, end < windowStart → does not span (both conditions must be true)
     $data = makeLookaheadData(tasks: [
         ['task_id' => '1', 'status_code' => 'TK_Active', 'task_code' => 'NO_SPAN',
             'target_start_date' => '2023-11-01 00:00:00', // before window
@@ -221,7 +217,7 @@ test('activity that starts before but finishes before window does not span', fun
 });
 
 test('activity starting after window end does not span', function () {
-    // start > windowEnd → startsBefore = false, finishes after = true → spans = false (needs both)
+    // start > windowEnd → does not start before the window, so it does not span (needs both)
     $data = makeLookaheadData(tasks: [
         ['task_id' => '1', 'status_code' => 'TK_Active', 'task_code' => 'FUTURE',
             'target_start_date' => '2024-03-01 00:00:00', // after window
@@ -255,11 +251,10 @@ test('activity with only act_start_date falls back to act dates', function () {
 });
 
 // ---------------------------------------------------------------
-// Break/Continue and sorting mutations
+// Skipped activities, missing dates and sorting
 // ---------------------------------------------------------------
 
 test('Completed activity does not break the loop', function () {
-    // Kills ContinueToBreak line 29
     $data = makeLookaheadData(tasks: [
         ['task_id' => '1', 'status_code' => 'TK_Complete', 'target_start_date' => '2024-01-10 00:00:00', 'target_end_date' => '2024-01-15 00:00:00', 'target_drtn_hr_cnt' => '40'],
         ['task_id' => '2', 'status_code' => 'TK_Active', 'target_start_date' => '2024-01-10 00:00:00', 'target_end_date' => '2024-01-15 00:00:00', 'target_drtn_hr_cnt' => '40'],
@@ -267,12 +262,11 @@ test('Completed activity does not break the loop', function () {
 
     $result = (new LookaheadGenerator)->generate($data, '2024-01-01', 3);
 
-    // If it was `break`, task 2 would be skipped
+    // The completed first activity must not stop the later active one from being included
     expect($result['activity_count'])->toBe(1);
 });
 
-test('null start date with valid end date uses null-safe operator', function () {
-    // Kills RemoveNullSafeOperator on line 44 ($start?->toDateString())
+test('activity with an end date but no start date is included with a null start_date', function () {
     $data = makeLookaheadData(tasks: [
         ['task_id' => '1', 'status_code' => 'TK_Active',
             'target_end_date' => '2024-01-10 00:00:00', // Finishes in window
@@ -286,8 +280,7 @@ test('null start date with valid end date uses null-safe operator', function () 
         ->and($result['activities'][0]['start_date'])->toBeNull();
 });
 
-test('null end date with valid start date uses null-safe operator', function () {
-    // Kills RemoveNullSafeOperator on line 45 ($finish?->toDateString())
+test('activity with a start date but no end date is included with a null finish_date', function () {
     $data = makeLookaheadData(tasks: [
         ['task_id' => '1', 'status_code' => 'TK_Active',
             'target_start_date' => '2024-01-10 00:00:00', // Starts in window
@@ -302,7 +295,6 @@ test('null end date with valid start date uses null-safe operator', function () 
 });
 
 test('activities without start dates are sorted to the end', function () {
-    // Kills IfNegated / RemoveNot on line 53 (`if (! $a['start_date']) return 1;`)
     $data = makeLookaheadData(tasks: [
         ['task_id' => '1', 'status_code' => 'TK_Active', 'task_code' => 'NO_START', 'target_end_date' => '2024-01-10 00:00:00'],
         ['task_id' => '2', 'status_code' => 'TK_Active', 'task_code' => 'HAS_START', 'target_start_date' => '2024-01-10 00:00:00'],
@@ -315,8 +307,7 @@ test('activities without start dates are sorted to the end', function () {
         ->and($result['activities'][1]['task_code'])->toBe('NO_START');
 });
 
-test('spansWindow requires both start and finish to be truthy', function () {
-    // Kills BooleanAndToBooleanOr on line 37: $start && $finish && ...
+test('activity that starts before the window but has no end date is not included', function () {
     $data = makeLookaheadData(tasks: [
         ['task_id' => '1', 'status_code' => 'TK_Active',
             'target_start_date' => '2023-12-01 00:00:00', // Starts before window
@@ -326,6 +317,6 @@ test('spansWindow requires both start and finish to be truthy', function () {
 
     $result = (new LookaheadGenerator)->generate($data, '2024-01-01', 3);
 
-    // If `$start || $finish` was evaluated, this might evaluate to true and get included
+    // Without a finish date the activity cannot span the window
     expect($result['activity_count'])->toBe(0);
 });

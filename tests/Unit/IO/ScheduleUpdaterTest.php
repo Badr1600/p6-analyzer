@@ -28,13 +28,23 @@ test('updateActivity returns false for nonexistent task', function () {
 
 test('batchUpdate updates multiple tasks', function () {
     $tasks = $this->data->getTable('TASK')->take(2);
+    $taskIds = $tasks->pluck('task_id')->all();
+    $statusesBefore = $tasks->pluck('status_code')->all();
+    $otherStatusesBefore = $this->data->getTable('TASK')->slice(2)->pluck('status_code')->all();
     $updates = $tasks->map(fn ($row) => [
         'task_id' => $row['task_id'],
         'updates' => ['status_code' => 'TK_Complete'],
     ])->values()->toArray();
 
     $count = $this->updater->batchUpdate($this->data, $updates);
-    expect($count)->toBe(2);
+
+    $table = $this->data->getTable('TASK');
+
+    // The targeted rows changed to TK_Complete and every other row kept its status
+    expect($statusesBefore)->not->toContain('TK_Complete')
+        ->and($count)->toBe(2)
+        ->and($table->whereIn('task_id', $taskIds)->pluck('status_code')->values()->all())->toBe(['TK_Complete', 'TK_Complete'])
+        ->and($table->slice(2)->pluck('status_code')->all())->toBe($otherStatusesBefore);
 });
 
 test('addActivity throws when task_id is missing', function () {
@@ -50,5 +60,11 @@ test('addActivity adds a new row to TASK table', function () {
         'task_name' => 'New Task',
     ]);
 
-    expect($this->data->getTable('TASK')->count())->toBe($originalCount + 1);
+    $tasks = $this->data->getTable('TASK');
+    $added = $tasks->firstWhere('task_id', '99999');
+
+    expect($tasks->count())->toBe($originalCount + 1)
+        ->and($added)->not->toBeNull()
+        ->and($added['task_code'])->toBe('NEW01')
+        ->and($added['task_name'])->toBe('New Task');
 });

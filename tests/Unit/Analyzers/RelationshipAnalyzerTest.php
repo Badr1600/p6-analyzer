@@ -28,7 +28,7 @@ test('empty collection returns zeros', function () {
         ->and($result['type_distribution']['FF'])->toBe(0)
         ->and($result['type_distribution']['SF'])->toBe(0)
         ->and($result['type_distribution']['unknown'])->toBe(0)
-        // Kills DecrementInteger/IncrementInteger on fallback 0 in ternary
+        // percentages are 0, not a division by zero, when there are no relationships
         ->and($result['type_percentages']['FS'])->toBe(0)
         ->and($result['type_percentages']['SS'])->toBe(0)
         ->and($result['type_percentages']['FF'])->toBe(0)
@@ -107,7 +107,7 @@ test('percentage rounds to 2 decimal places for 1/3 split', function () {
 });
 
 test('FS percentage is correct for 2 of 3 relationships', function () {
-    // 2/3 * 100 = 66.67 — kills DecrementInteger on * 100 (would give 66.00)
+    // 2/3 * 100 = 66.67
     $rels = collect([makeRel('PR_FS'), makeRel('PR_FS'), makeRel('PR_SS')]);
     $result = (new RelationshipAnalyzer)->calculate($rels);
 
@@ -159,7 +159,6 @@ test('zero lag is counted in zero bucket', function () {
 });
 
 test('null lag defaults to 0 and goes into zero bucket', function () {
-    // Kills DecrementInteger: ?? 0 → ?? -1 (would go into negative bucket)
     $relWithNullLag = RelationshipData::fromModelOrArray([
         'task_pred_id' => 'X1',
         'pred_type' => 'PR_FS',

@@ -170,16 +170,15 @@ test('runs against real XER fixture without error', function () {
     $result = (new ScheduleHealthChecker)->check($data, '2024-01-15');
 
     expect($result['total_activities'])->toBeGreaterThan(0)
-        ->and($result['missing_resources'])->toBeGreaterThanOrEqual(0)
-        ->and($result['missing_logic'])->toBeGreaterThanOrEqual(0);
+        ->and($result['missing_resources'])->toBe(150)
+        ->and($result['missing_logic'])->toBe(11);
 });
 
 // ---------------------------------------------------------------
-// Null lag fallback (kills DecrementInteger ?? 0 → -1)
+// A missing lag counts as zero
 // ---------------------------------------------------------------
 
 test('null lag_hr_cnt falls back to 0 and counts as neither lag nor lead', function () {
-    // Kills DecrementInteger: ?? 0 → ?? -1 (would count as lead)
     $data = makeHealthData(
         relationships: [['task_pred_id' => '1', 'task_id' => 'T2', 'pred_task_id' => 'T1', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '']],
     );
@@ -191,7 +190,7 @@ test('null lag_hr_cnt falls back to 0 and counts as neither lag nor lead', funct
 });
 
 // ---------------------------------------------------------------
-// task_type empty string (kills EmptyStringToNotEmpty line 60)
+// Empty task_type
 // ---------------------------------------------------------------
 
 test('empty task_type causes activity to be counted as missing logic', function () {
@@ -204,7 +203,7 @@ test('empty task_type causes activity to be counted as missing logic', function 
 });
 
 // ---------------------------------------------------------------
-// Successor/predecessor string fallbacks (kills EmptyStringToNotEmpty lines 41/42)
+// Empty successor / predecessor ids
 // ---------------------------------------------------------------
 
 test('relationship with empty successor string skips hasPredecessor registration', function () {
@@ -218,14 +217,16 @@ test('relationship with empty successor string skips hasPredecessor registration
     expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(1);
 });
 
-test('relationship with empty predecessor string skips hasSuccessor registration', function () {
-    // pred_task_id = '' → falsy, doesn't register as having successor
+test('relationship with empty predecessor string still gives its successor a predecessor', function () {
+    // pred_task_id = '' → falsy, so no activity is registered as having a successor,
+    // but task_id = '1' is still registered as having a predecessor
     $data = makeHealthData(
         tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'task_type' => 'TT_Task']],
-        relationships: [['task_pred_id' => '99', 'task_id' => '', 'pred_task_id' => '', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '0']],
+        relationships: [['task_pred_id' => '99', 'task_id' => '1', 'pred_task_id' => '', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '0']],
     );
 
-    expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(1);
+    // Activity 1 has a predecessor link, so it is not missing logic
+    expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(0);
 });
 
 // ---------------------------------------------------------------

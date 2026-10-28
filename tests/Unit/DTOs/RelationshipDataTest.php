@@ -23,7 +23,6 @@ test('creates from flat array with task_pred_id as id', function () {
 });
 
 test('creates from flat array with id key taking precedence', function () {
-    // Kills CoalesceRemoveLeft: $relationship['id'] ?? ... removing id fallback
     $rel = RelationshipData::fromModelOrArray([
         'id' => 'EXPLICIT_ID',
         'task_pred_id' => 'PRED_ID',
@@ -35,7 +34,6 @@ test('creates from flat array with id key taking precedence', function () {
 });
 
 test('falls back to task_pred_id when id is absent', function () {
-    // Kills DecrementInteger/IncrementInteger on fallback chain
     $rel = RelationshipData::fromModelOrArray([
         'task_pred_id' => 'PRED_ID_99',
         'pred_type' => 'PR_FF',
@@ -45,7 +43,6 @@ test('falls back to task_pred_id when id is absent', function () {
 });
 
 test('falls back to rawData task_pred_id as last resort', function () {
-    // Kills CoalesceRemoveLeft removing rawData['task_pred_id']
     $rel = RelationshipData::fromModelOrArray([
         'raw_data' => ['task_pred_id' => 'RAW_PRED_ID', 'pred_type' => 'PR_SF'],
     ]);
@@ -53,15 +50,8 @@ test('falls back to rawData task_pred_id as last resort', function () {
     expect($rel->id)->toBe('RAW_PRED_ID');
 });
 
-test('id defaults to empty string when all id sources are absent', function () {
-    // Kills EmptyStringToNotEmpty mutations
-    $rel = RelationshipData::fromModelOrArray([]);
-
-    expect($rel->id)->toBe('');
-});
-
 // ---------------------------------------------------------------
-// pred_type from rawData (kills CoalesceRemoveLeft on line 29)
+// pred_type from rawData
 // ---------------------------------------------------------------
 
 test('pred_type is read from rawData', function () {
@@ -74,7 +64,6 @@ test('pred_type is read from rawData', function () {
 });
 
 test('pred_type defaults to empty string when absent', function () {
-    // Kills EmptyStringToNotEmpty on pred_type fallback
     $rel = RelationshipData::fromModelOrArray(['task_pred_id' => '1']);
 
     expect($rel->pred_type)->toBe('');
@@ -90,7 +79,7 @@ test('pred_type with explicit raw_data key', function () {
 });
 
 // ---------------------------------------------------------------
-// lag_hr_cnt cast and null (kills RemoveDoubleCast line 30, ContinueToBreak)
+// lag_hr_cnt cast and null
 // ---------------------------------------------------------------
 
 test('lag_hr_cnt is parsed as float', function () {
@@ -100,7 +89,6 @@ test('lag_hr_cnt is parsed as float', function () {
 });
 
 test('lag_hr_cnt fractional value is cast correctly', function () {
-    // Kills RemoveDoubleCast: (float) '4.5' → '4.5'
     $rel = RelationshipData::fromModelOrArray(['task_pred_id' => '1', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '4.5']);
 
     expect($rel->lag_hr_cnt)->toBe(4.5)->toBeFloat();
@@ -131,11 +119,10 @@ test('lag_hr_cnt negative value', function () {
 });
 
 // ---------------------------------------------------------------
-// id string cast (kills RemoveStringCast on line 28)
+// id string cast
 // ---------------------------------------------------------------
 
 test('integer id is cast to string', function () {
-    // Kills RemoveStringCast
     $rel = RelationshipData::fromModelOrArray([
         'task_pred_id' => 42, // integer
         'pred_type' => 'PR_FS',
@@ -145,11 +132,10 @@ test('integer id is cast to string', function () {
 });
 
 // ---------------------------------------------------------------
-// pred_type string cast (kills RemoveStringCast on line 29)
+// pred_type string cast
 // ---------------------------------------------------------------
 
 test('non-string pred_type is cast to string', function () {
-    // Kills RemoveStringCast on pred_type
     $rel = RelationshipData::fromModelOrArray([
         'task_pred_id' => '1',
         'pred_type' => 100, // integer
@@ -159,7 +145,7 @@ test('non-string pred_type is cast to string', function () {
 });
 
 // ---------------------------------------------------------------
-// Object path (kills TernaryNegated, RemoveArrayCast, etc.)
+// Object path
 // ---------------------------------------------------------------
 
 test('creates from object with raw_data property', function () {
@@ -175,7 +161,6 @@ test('creates from object with raw_data property', function () {
 });
 
 test('object with array raw_data is used directly', function () {
-    // Kills RemoveArrayCast: is_array(array) → always true, raw_data used
     $obj = new stdClass;
     $obj->id = 'OBJ1';
     $obj->raw_data = ['pred_type' => 'PR_FS', 'lag_hr_cnt' => '5', 'custom_field' => 'value'];
@@ -187,7 +172,6 @@ test('object with array raw_data is used directly', function () {
 });
 
 test('object with null raw_data returns empty array', function () {
-    // Kills CoalesceRemoveLeft on (array)($obj->raw_data ?? [])
     $obj = new stdClass;
     $obj->id = 'OBJ2';
     $obj->raw_data = null;
@@ -199,7 +183,6 @@ test('object with null raw_data returns empty array', function () {
 });
 
 test('object with non-array raw_data is cast to array', function () {
-    // Kills RemoveArrayCast: (array) $scalar → [$scalar]
     $obj = new stdClass;
     $obj->id = 'OBJ3';
     $obj->raw_data = 'some-string';
@@ -231,7 +214,7 @@ test('raw_data retains all original fields from array input', function () {
 });
 
 // ---------------------------------------------------------------
-// Missing fields (kills EmptyStringToNotEmpty for id/pred_type)
+// Missing fields
 // ---------------------------------------------------------------
 
 test('missing all fields returns empty strings and null lag', function () {

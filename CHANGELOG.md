@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-10-28
+
 ### Added
 - A GitHub Actions workflow that runs the tests on PHP 8.3 and 8.4 against Laravel 12 and 13, with
   the lowest and the latest dependencies, and checks `composer.json` and code style.
@@ -19,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Laravel 12 or 13.
 - The `orchestra/testbench` dev requirement also allows `^11.0`, so the tests run on Laravel 13.
 - `docs/upgrading.md` now explains upgrading from 1.x to 2.x.
+- The test suite drops duplicate tests and mutation-testing notes, and checks concrete results
+  where it used to check only types or `>= 0`.
 
 ## [2.4.1] - 2026-10-28
 
@@ -213,7 +217,8 @@ across activities.
 - Architecture tests ensuring no `App\` namespace or Spatie Data leaks
 - Comprehensive documentation in `docs/` directory
 
-[Unreleased]: https://github.com/Badr1600/p6-analyzer/compare/v2.4.1...HEAD
+[Unreleased]: https://github.com/Badr1600/p6-analyzer/compare/v2.4.2...HEAD
+[2.4.2]: https://github.com/Badr1600/p6-analyzer/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/Badr1600/p6-analyzer/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/Badr1600/p6-analyzer/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/Badr1600/p6-analyzer/compare/v2.2.0...v2.3.0

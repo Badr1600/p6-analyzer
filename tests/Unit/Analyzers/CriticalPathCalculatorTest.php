@@ -127,7 +127,8 @@ test('runs against real XER fixture without error', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new CriticalPathCalculator)->calculate($data->getActivities(), 0);
 
+    // No activity in the fixture has zero or negative float
     expect($result['total_activities'])->toBeGreaterThan(0)
-        ->and($result['critical_path_percentage'])->toBeGreaterThanOrEqual(0)
-        ->and($result['critical_path_percentage'])->toBeLessThanOrEqual(100);
+        ->and($result['critical_activities_count'])->toBe(0)
+        ->and($result['critical_path_percentage'])->toBe(0.0);
 });

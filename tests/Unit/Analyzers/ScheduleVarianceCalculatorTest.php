@@ -145,7 +145,7 @@ test('min slip threshold filters small slips out', function () {
 });
 
 // ---------------------------------------------------------------
-// Slippage detection — kills BooleanAndToBooleanOr
+// Slippage detection
 // ---------------------------------------------------------------
 
 test('activity with same finish as master does not slip', function () {
@@ -176,7 +176,7 @@ test('activity finishing later than master is slipping', function () {
 });
 
 // ---------------------------------------------------------------
-// variance_days calculation — kills DecrementInteger / IncrementInteger
+// variance_days calculation
 // ---------------------------------------------------------------
 
 test('variance_days is exactly 7 for one week slip', function () {
@@ -199,7 +199,7 @@ test('variance_days is exactly 30 for one month slip', function () {
 });
 
 // ---------------------------------------------------------------
-// max_variance_days — kills DecrementInteger on comparison
+// max_variance_days
 // ---------------------------------------------------------------
 
 test('max_variance_days tracks the worst slip', function () {
@@ -221,7 +221,7 @@ test('max_variance_days tracks the worst slip', function () {
 });
 
 // ---------------------------------------------------------------
-// average_variance_days — kills DecrementInteger on round and divide
+// average_variance_days
 // ---------------------------------------------------------------
 
 test('average_variance_days is 0 when no slipping activities', function () {
@@ -262,7 +262,7 @@ test('slipping activity entry has required keys', function () {
 });
 
 // ---------------------------------------------------------------
-// Date nullity guard — kills BooleanAndToBooleanOr
+// A missing finish date never counts as slippage
 // ---------------------------------------------------------------
 
 test('activity with null workbench finish does not slip', function () {
@@ -289,7 +289,8 @@ test('runs against real XER fixture without error', function () {
     $activities = $data->getActivities();
     $result = (new ScheduleVarianceCalculator)->calculate($activities, $activities);
 
-    // Same data — slipping count may vary but total compared equals activity count
+    // A schedule compared with itself: every activity matches its own row and none slips
     expect($result['total_activities_compared'])->toBeGreaterThan(0)
-        ->and($result['slipping_activities_count'])->toBeGreaterThanOrEqual(0);
+        ->and($result['total_activities_compared'])->toBe($activities->count())
+        ->and($result['slipping_activities_count'])->toBe(0);
 });

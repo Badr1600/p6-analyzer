@@ -32,7 +32,7 @@ test('empty data returns all zeros', function () {
         ->and($result['status_counts']['not_started'])->toBe(0)
         ->and($result['status_counts']['in_progress'])->toBe(0)
         ->and($result['status_counts']['completed'])->toBe(0)
-        // Kills DecrementInteger: ternary fallback 0 → -1 for each status percentage
+        // percentages are 0, not a division by zero, when there are no activities
         ->and($result['status_percentages']['not_started'])->toBe(0)
         ->and($result['status_percentages']['in_progress'])->toBe(0)
         ->and($result['status_percentages']['completed'])->toBe(0)
@@ -202,15 +202,15 @@ test('runs against real XER fixture without error', function () {
         + $result['status_counts']['completed'];
 
     expect($sum)->toBe($result['total_activities'])
-        ->and($result['overall_percent_complete_by_duration'])->toBeGreaterThanOrEqual(0);
+        ->and($result['overall_percent_complete_by_duration'])->toBe(3.24);
 });
 
 // ---------------------------------------------------------------
-// Null duration ?? 0 (kills IncrementInteger: ?? 0 → ?? 1 on line 37)
+// A missing duration counts as zero
 // ---------------------------------------------------------------
 
 test('activity with no target_drtn_hr_cnt contributes 0 to total duration', function () {
-    // Creates activity without duration — forces the ?? 0 path
+    // Activity without a duration
     $data = makeProgressData(tasks: [[
         'task_id' => '1',
         'status_code' => 'TK_Active',
@@ -220,16 +220,15 @@ test('activity with no target_drtn_hr_cnt contributes 0 to total duration', func
 
     $result = (new ProgressSummarizer)->summarize($data);
 
-    // Overall pct: totalDuration=0 → ternary returns 0
+    // With no total duration the overall percentage is 0
     expect($result['overall_percent_complete_by_duration'])->toEqual(0);
 });
 
 // ---------------------------------------------------------------
-// phys_comp_pct ?? complete_pct coalesce (kills CoalesceRemoveLeft line 40)
+// phys_comp_pct falls back to complete_pct
 // ---------------------------------------------------------------
 
 test('complete_pct is used when phys_comp_pct is absent', function () {
-    // Kills CoalesceRemoveLeft: removes phys_comp_pct ?? leaving just (complete_pct ?? 0)
     $data = makeProgressData(tasks: [[
         'task_id' => '1',
         'status_code' => 'TK_Active',
@@ -259,11 +258,11 @@ test('phys_comp_pct takes precedence over complete_pct when both present', funct
 });
 
 // ---------------------------------------------------------------
-// totalDuration > 0 guard boundary (kills IncrementInteger line 44: > 0 → > 1)
+// Smallest positive total duration
 // ---------------------------------------------------------------
 
 test('overall_pct_by_duration computes when total_duration is exactly 1hr', function () {
-    // > 0 is true for duration=1; > 1 would be false → 0
+    // Even a total of one hour yields a real percentage rather than 0
     $data = makeProgressData(tasks: [[
         'task_id' => '1',
         'status_code' => 'TK_Active',
@@ -278,7 +277,7 @@ test('overall_pct_by_duration computes when total_duration is exactly 1hr', func
 });
 
 // ---------------------------------------------------------------
-// overall_pct_by_duration precision (kills IncrementInteger on round(x, 2))
+// overall_pct_by_duration precision
 // ---------------------------------------------------------------
 
 test('overall_pct_by_duration rounds to 2 decimal places', function () {
