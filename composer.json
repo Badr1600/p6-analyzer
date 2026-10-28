@@ -5,19 +5,26 @@
     "license": "MIT",
     "minimum-stability": "stable",
     "keywords": ["laravel", "primavera", "p6", "xer", "schedule", "analysis", "dcma", "earned-value", "critical-path"],
+    "homepage": "https://github.com/Badr1600/p6-analyzer",
     "authors": [
         {
             "name": "TeckFuture"
         }
     ],
+    "support": {
+        "issues": "https://github.com/Badr1600/p6-analyzer/issues",
+        "source": "https://github.com/Badr1600/p6-analyzer",
+        "docs": "https://github.com/Badr1600/p6-analyzer/tree/main/docs",
+        "security": "https://github.com/Badr1600/p6-analyzer/security/policy"
+    },
     "require": {
         "php": "^8.3",
         "illuminate/support": "^12.0|^13.0",
-        "nesbot/carbon": "^2.0|^3.0"
+        "nesbot/carbon": "^3.8.4"
     },
     "require-dev": {
         "pestphp/pest": "^3.0|^4.0",
-        "orchestra/testbench": "^10.0",
+        "orchestra/testbench": "^10.0|^11.0",
         "laravel/pint": "^1.0"
     },
     "autoload": {
