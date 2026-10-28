@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-10-28
+
 ### Changed
 - `composer.json` no longer hard-codes a `version` field. The version now comes from the git tag alone, so
   Packagist no longer skips a tag whose number differs from that field.
