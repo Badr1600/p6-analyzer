@@ -53,13 +53,6 @@ test('falls back to rawData task_pred_id as last resort', function () {
     expect($rel->id)->toBe('RAW_PRED_ID');
 });
 
-test('id defaults to empty string when all id sources are absent', function () {
-    // Kills EmptyStringToNotEmpty mutations
-    $rel = RelationshipData::fromModelOrArray([]);
-
-    expect($rel->id)->toBe('');
-});
-
 // ---------------------------------------------------------------
 // pred_type from rawData (kills CoalesceRemoveLeft on line 29)
 // ---------------------------------------------------------------

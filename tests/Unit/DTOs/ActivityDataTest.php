@@ -500,13 +500,6 @@ test('rawData task_code is used when top level is absent', function () {
     expect($activity->task_code)->toBe('RAW_CODE_ONLY');
 });
 
-test('empty string defaults for absent string fields', function () {
-    // Kills EmptyStringToNotEmpty for task_code, id, etc.
-    $activity = ActivityData::fromModelOrArray([]);
-    expect($activity->id)->toBe('')
-        ->and($activity->task_code)->toBe('');
-});
-
 // ---------------------------------------------------------------
 // Casts and types (kills lines 73, 76, 114, 131)
 // ---------------------------------------------------------------

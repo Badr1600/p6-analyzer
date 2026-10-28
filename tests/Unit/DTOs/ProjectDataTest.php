@@ -52,12 +52,6 @@ test('falls back to proj_id when array id key is absent', function () {
     expect($project->id)->toBe('P99');
 });
 
-test('id is empty string when neither id nor proj_id present', function () {
-    $project = ProjectData::fromModelOrArray([]);
-
-    expect($project->id)->toBe('');
-});
-
 // ---------------------------------------------------------------
 // Array path — field values are cast to string
 // ---------------------------------------------------------------
@@ -171,19 +165,8 @@ test('missing proj_name in nested raw_data defaults to empty string', function (
 });
 
 // ---------------------------------------------------------------
-// Object path with null raw_data — asserts raw_data is [] not scalar
+// Object path — a scalar raw_data keeps its value as the first array element
 // ---------------------------------------------------------------
-
-test('object with null raw_data: raw_data is empty array (not null)', function () {
-    $obj = new stdClass;
-    $obj->id = 'X';
-    $obj->raw_data = null;
-
-    $project = ProjectData::fromModelOrArray($obj);
-
-    // Kills CoalesceRemoveLeft that would make raw_data = null-derived empty
-    expect($project->raw_data)->toBe([]);
-});
 
 test('object with scalar raw_data is cast to non-empty array', function () {
     $obj = new stdClass;

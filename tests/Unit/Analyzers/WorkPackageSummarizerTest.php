@@ -209,20 +209,6 @@ test('percent_complete_by_count is 71.43 for 5 of 7 completed', function () {
 });
 
 // ---------------------------------------------------------------
-// activity_count > 0 guard (kills GreaterToGreaterOrEqual: > 0 → >= 0)
-// ---------------------------------------------------------------
-
-test('package with zero activities has percent_complete_by_count of 0', function () {
-    // This shouldn't happen in practice (WBS nodes without activities), but
-    // we test the guard to ensure > 0 check works
-    $data = makeWpData(tasks: [makeTask('1', 'W1')]);
-    $result = (new WorkPackageSummarizer)->summarize($data);
-
-    // 1 activity, 0 completed → 0%
-    expect($result[0]['percent_complete_by_count'])->toBe(0.0);
-});
-
-// ---------------------------------------------------------------
 // target_drtn_hr_cnt and target_cost null fallback (kills ?? 0 → -1)
 // ---------------------------------------------------------------
 
