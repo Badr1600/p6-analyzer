@@ -231,6 +231,28 @@ test('phys_comp_pct and complete_pct are read independently when both are set', 
         ->and($activity->complete_pct)->toBe(50.0);
 });
 
+test('it reads the XER phys_complete_pct column into phys_comp_pct', function () {
+    // phys_complete_pct is the column name in a real XER TASK table
+    $activity = ActivityData::fromModelOrArray([
+        'task_id' => '1',
+        'phys_complete_pct' => '42.5',
+        'target_drtn_hr_cnt' => '40',
+    ]);
+
+    expect($activity->phys_comp_pct)->toBe(42.5);
+});
+
+test('phys_complete_pct takes precedence over phys_comp_pct when both are present', function () {
+    $activity = ActivityData::fromModelOrArray([
+        'task_id' => '1',
+        'phys_complete_pct' => '60',
+        'phys_comp_pct' => '30',
+        'target_drtn_hr_cnt' => '40',
+    ]);
+
+    expect($activity->phys_comp_pct)->toBe(60.0);
+});
+
 // ---------------------------------------------------------------
 // status fallback — tests the status_code ?? status chain
 // ---------------------------------------------------------------
