@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - A GitHub Actions workflow that runs the tests on PHP 8.3 and 8.4 against Laravel 12 and 13, with
   the lowest and the latest dependencies, and checks `composer.json` and code style.
 - `SECURITY.md` (private reporting through GitHub), `CONTRIBUTING.md` and `.editorconfig`.
+- `phpunit.xml.dist`. Without a PHPUnit configuration, Pest failed to start on a fresh install
+  ("Could not read XML from file "--cache-directory"").
 - Support links (issues, source, docs, security policy) and a homepage in `composer.json`.
 
 ### Changed
