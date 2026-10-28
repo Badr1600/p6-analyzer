@@ -175,11 +175,10 @@ test('runs against real XER fixture without error', function () {
 });
 
 // ---------------------------------------------------------------
-// Null lag fallback (kills DecrementInteger ?? 0 → -1)
+// A missing lag counts as zero
 // ---------------------------------------------------------------
 
 test('null lag_hr_cnt falls back to 0 and counts as neither lag nor lead', function () {
-    // Kills DecrementInteger: ?? 0 → ?? -1 (would count as lead)
     $data = makeHealthData(
         relationships: [['task_pred_id' => '1', 'task_id' => 'T2', 'pred_task_id' => 'T1', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '']],
     );
@@ -191,7 +190,7 @@ test('null lag_hr_cnt falls back to 0 and counts as neither lag nor lead', funct
 });
 
 // ---------------------------------------------------------------
-// task_type empty string (kills EmptyStringToNotEmpty line 60)
+// Empty task_type
 // ---------------------------------------------------------------
 
 test('empty task_type causes activity to be counted as missing logic', function () {
@@ -204,7 +203,7 @@ test('empty task_type causes activity to be counted as missing logic', function 
 });
 
 // ---------------------------------------------------------------
-// Successor/predecessor string fallbacks (kills EmptyStringToNotEmpty lines 41/42)
+// Empty successor / predecessor ids
 // ---------------------------------------------------------------
 
 test('relationship with empty successor string skips hasPredecessor registration', function () {

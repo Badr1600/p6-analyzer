@@ -177,7 +177,7 @@ test('runs against real XER fixture without error', function () {
 });
 
 // ---------------------------------------------------------------
-// percent_complete_by_count precision (kills DecrementInteger on * 100)
+// percent_complete_by_count rounding
 // ---------------------------------------------------------------
 
 test('percent_complete_by_count is 14.29 for 1 of 7 completed', function () {
@@ -209,11 +209,10 @@ test('percent_complete_by_count is 71.43 for 5 of 7 completed', function () {
 });
 
 // ---------------------------------------------------------------
-// target_drtn_hr_cnt and target_cost null fallback (kills ?? 0 → -1)
+// A missing duration or cost counts as zero
 // ---------------------------------------------------------------
 
 test('activity with null duration contributes 0 to total_duration_hr', function () {
-    // Creates task without target_drtn_hr_cnt → ?? 0 path
     $data = makeWpData(tasks: [[
         'task_id' => '1',
         'status_code' => 'TK_Active',
@@ -223,7 +222,7 @@ test('activity with null duration contributes 0 to total_duration_hr', function 
 
     $result = (new WorkPackageSummarizer)->summarize($data);
 
-    expect($result[0]['total_duration_hr'])->toBe(0.0); // Not -1
+    expect($result[0]['total_duration_hr'])->toBe(0.0);
 });
 
 test('activity with null cost contributes 0 to total_cost', function () {
@@ -236,5 +235,5 @@ test('activity with null cost contributes 0 to total_cost', function () {
 
     $result = (new WorkPackageSummarizer)->summarize($data);
 
-    expect($result[0]['total_cost'])->toBe(0.0); // Not -1
+    expect($result[0]['total_cost'])->toBe(0.0);
 });

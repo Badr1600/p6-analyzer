@@ -131,7 +131,6 @@ test('Carbon instance is returned as-is without re-parsing', function () {
 });
 
 test('empty string date field returns null (not parsed)', function () {
-    // Kills EmptyStringToNotEmpty mutation on parseDate
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'act_start_date' => '',
@@ -150,7 +149,6 @@ test('invalid date string returns null', function () {
 });
 
 test('planned_value is read from rawData when present', function () {
-    // Kills CoalesceRemoveLeft removing planned_value from rawData
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'planned_value' => '250.50',
@@ -208,11 +206,10 @@ test('null float field returns null', function () {
 });
 
 // ---------------------------------------------------------------
-// complete_pct fallback (kills CoalesceRemoveLeft at line 87)
+// complete_pct
 // ---------------------------------------------------------------
 
 test('complete_pct is used when phys_comp_pct is absent', function () {
-    // Kills CoalesceRemoveLeft: removing complete_pct from the fallback chain
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'complete_pct' => '75',
@@ -261,7 +258,7 @@ test('object status property is read when status_code is absent', function () {
 });
 
 // ---------------------------------------------------------------
-// act_cost coalesce (kills CoalesceRemoveLeft on line 85)
+// act_cost
 // ---------------------------------------------------------------
 
 test('act_cost is read from rawData when present', function () {
@@ -281,7 +278,7 @@ test('act_cost is null when absent', function () {
 });
 
 // ---------------------------------------------------------------
-// Date field coalescences — kills CoalesceRemoveLeft per field
+// Date and numeric fields are read from rawData
 // ---------------------------------------------------------------
 
 test('act_end_date is read from rawData when present', function () {
@@ -337,11 +334,10 @@ test('target_drtn_hr_cnt is read from rawData when present', function () {
 });
 
 // ---------------------------------------------------------------
-// Object path name fallback '' (kills EmptyStringToNotEmpty line 76)
+// Object path — name defaults to an empty string
 // ---------------------------------------------------------------
 
 test('object with no name property returns empty string name', function () {
-    // Kills EmptyStringToNotEmpty: name ?? '' → name ?? 'PEST Mutator was here!'
     $obj = new stdClass;
     $obj->id = '1';
     $obj->raw_data = []; // no task_name in rawData either
@@ -364,12 +360,11 @@ test('object with null name property returns empty string', function () {
 });
 
 // ---------------------------------------------------------------
-// task_name coalesce (kills CoalesceRemoveLeft line 76)
+// name resolution: task_name, then name, then rawData task_name
 // ---------------------------------------------------------------
 
 test('task_name is used when name is absent and rawData has no task_name', function () {
-    // Kills CoalesceRemoveLeft: removes $activity['task_name'] ?? from chain
-    // When raw_data is separate, rawData['task_name'] != $activity['task_name']
+    // The top-level task_name is used even though raw_data holds no task_name
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'task_name' => 'My Explicit Task Name',
@@ -393,7 +388,6 @@ test('name key takes precedence over task_name when both present', function () {
 });
 
 test('name key is used when task_name is absent', function () {
-    // Kills CoalesceRemoveLeft removing $activity['name'] ?? from chain
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'name' => 'My Activity Name', // NO task_name key
@@ -404,7 +398,6 @@ test('name key is used when task_name is absent', function () {
 });
 
 test('rawData task_name is used when top-level task_name and name are absent', function () {
-    // Kills CoalesceRemoveLeft removing $rawData['task_name'] ?? from chain
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'raw_data' => ['task_id' => '1', 'task_name' => 'Name From Raw Data'],
@@ -415,11 +408,10 @@ test('rawData task_name is used when top-level task_name and name are absent', f
 });
 
 // ---------------------------------------------------------------
-// raw_data extraction and object casts (kills line 68 mutations)
+// raw_data extraction and object casts
 // ---------------------------------------------------------------
 
 test('array raw_data key takes precedence over full array fallback', function () {
-    // Kills CoalesceRemoveLeft removing $activity['raw_data']
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'custom_key' => 'top',
@@ -432,7 +424,6 @@ test('array raw_data key takes precedence over full array fallback', function ()
 });
 
 test('object raw_data property is used when set', function () {
-    // Kills CoalesceRemoveLeft removing $activity->raw_data
     $obj = new stdClass;
     $obj->id = '1';
     $obj->raw_data = ['obj_key' => 'val'];
@@ -443,19 +434,18 @@ test('object raw_data property is used when set', function () {
 });
 
 test('object raw_data that is not an array is cast to array', function () {
-    // Kills RemoveArrayCast: (array) $activity->raw_data
     $obj = new stdClass;
     $obj->id = '1';
     $obj->raw_data = 'string-data';
 
     $activity = ActivityData::fromModelOrArray($obj);
 
-    // If RemoveArrayCast mutates this to `return $activity->raw_data`, it will be a string
+    // The string is wrapped into an array rather than kept as a string
     expect($activity->raw_data)->toBeArray()->not->toBeEmpty();
 });
 
 // ---------------------------------------------------------------
-// id, activity_id, task_code coalesces (kills lines 73-75 mutations)
+// id, activity_id and task_code resolution
 // ---------------------------------------------------------------
 
 test('id key takes precedence over task_id', function () {
@@ -501,7 +491,7 @@ test('rawData task_code is used when top level is absent', function () {
 });
 
 // ---------------------------------------------------------------
-// Casts and types (kills lines 73, 76, 114, 131)
+// Casts and types
 // ---------------------------------------------------------------
 
 test('integer id and name are cast to string', function () {
@@ -510,13 +500,11 @@ test('integer id and name are cast to string', function () {
         'task_name' => 100,
     ]);
 
-    // Kills RemoveStringCast
     expect($activity->id)->toBe('42')->toBeString()
         ->and($activity->name)->toBe('100')->toBeString();
 });
 
 test('Carbon instance passed to parseDate is returned exactly as is', function () {
-    // Kills InstanceOfToFalse and RemoveEarlyReturn on line 114
     $carbon = Carbon::parse('2024-01-01');
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
@@ -527,7 +515,6 @@ test('Carbon instance passed to parseDate is returned exactly as is', function (
 });
 
 test('float casting for numeric strings', function () {
-    // Kills RemoveDoubleCast: return (float) $value -> return $value
     $activity = ActivityData::fromModelOrArray([
         'task_id' => '1',
         'target_drtn_hr_cnt' => '40.5',

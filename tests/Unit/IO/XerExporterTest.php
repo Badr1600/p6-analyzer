@@ -37,17 +37,13 @@ test('it exports to a file and back', function () {
 });
 
 // ---------------------------------------------------------------
-// Exact String Output (Kills string concat, condition, and fallback mutations)
+// Exact string output
 // ---------------------------------------------------------------
 
-test('exports empty header exactly', function () {
-    // IfNegated / RemoveNot on line 19
+test('exporting an empty document yields a single newline', function () {
     $data = new ParsedXerData(header: '', tables: collect());
     $exporter = new XerExporter;
 
-    // Mutated: it would include empty string then \n -> "\n"
-    // Unmutated: it adds nothing, then implodes and adds \n -> "\n"
-    // Wait, implode([], "\n") is "" + "\n" = "\n".
     expect($exporter->export($data))->toBe("\n");
 });
 
@@ -55,7 +51,7 @@ test('exports header properly', function () {
     $data = new ParsedXerData(header: 'ERMHDR	8.0', tables: collect());
     $exporter = new XerExporter;
 
-    // Kills ConcatRemoveLeft line 40 (removes \n at the end)
+    // The header line is terminated by a newline
     expect($exporter->export($data))->toBe("ERMHDR\t8.0\n");
 });
 
@@ -75,12 +71,11 @@ test('exports tables and rows properly', function () {
         '%R	1	Project A',
     ])."\n";
 
-    // Kills Concat mutations on %T, %F, %R and final \n
+    // Table, field and row lines carry their %T / %F / %R prefixes, and the output ends with a newline
     expect($exporter->export($data))->toBe($expected);
 });
 
 test('skips empty tables', function () {
-    // Kills RemoveEarlyReturn line 24 (if isEmpty continue)
     $data = new ParsedXerData(
         header: '',
         tables: collect([
@@ -99,7 +94,6 @@ test('skips empty tables', function () {
 });
 
 test('row missing column falls back to empty string', function () {
-    // Kills CoalesceRemoveLeft line 35 ($row[$header] ?? '')
     // Force a row to not have a column that is present in the first row
     $data = new ParsedXerData(
         header: '',

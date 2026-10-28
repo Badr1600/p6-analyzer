@@ -146,16 +146,15 @@ test('object id is cast to string', function () {
 });
 
 // ---------------------------------------------------------------
-// Empty string default values (kills EmptyStringToNotEmpty)
+// Empty string defaults
 // ---------------------------------------------------------------
 
-test('missing proj_name defaults to empty string not a non-empty fallback', function () {
-    // Kills EmptyStringToNotEmpty mutation that would change '' to 'PEST Mutator was here!'
+test('missing fields default to empty strings', function () {
     $project = ProjectData::fromModelOrArray([]);
 
-    expect($project->proj_name)->toBe('');
-    expect($project->proj_short_name)->toBe('');
-    expect($project->id)->toBe('');
+    expect($project->proj_name)->toBe('')
+        ->and($project->proj_short_name)->toBe('')
+        ->and($project->id)->toBe('');
 });
 
 test('missing proj_name in nested raw_data defaults to empty string', function () {
@@ -176,13 +175,12 @@ test('object with scalar raw_data is cast to non-empty array', function () {
     $project = ProjectData::fromModelOrArray($obj);
 
     // (array) 'raw-string-value' = [0 => 'raw-string-value'] — non-empty
-    // Kills CoalesceRemoveLeft that would make it (array)[]
     expect($project->raw_data)->not->toBeEmpty()
         ->and($project->raw_data[0])->toBe('raw-string-value');
 });
 
 // ---------------------------------------------------------------
-// Array path — id is cast to string (kills RemoveStringCast)
+// Array path — id is cast to string
 // ---------------------------------------------------------------
 
 test('array path: integer id is cast to string', function () {

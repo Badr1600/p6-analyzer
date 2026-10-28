@@ -241,7 +241,7 @@ test('runs against real XER fixture without error', function () {
 });
 
 // ---------------------------------------------------------------
-// Break/Continue Mutation Paths (kills ContinueToBreak lines 33, 40, 50)
+// Invalid assignments are skipped without stopping the run
 // ---------------------------------------------------------------
 
 test('invalid assignment continues to next assignment rather than breaking loop', function () {
@@ -251,7 +251,7 @@ test('invalid assignment continues to next assignment rather than breaking loop'
             ['task_id' => 'T2', 'status_code' => 'TK_Active', 'target_start_date' => '2024-01-02 00:00:00', 'target_end_date' => '2024-01-02 00:00:00', 'target_drtn_hr_cnt' => '8'],
         ],
         taskrsrc: [
-            ['task_id' => 'T1', 'rsrc_id' => 'GHOST', 'target_qty' => '8'], // Invalid resource -> continue
+            ['task_id' => 'T1', 'rsrc_id' => 'GHOST', 'target_qty' => '8'], // Unknown resource -> skipped
             ['task_id' => 'T2', 'rsrc_id' => 'R1', 'target_qty' => '8'],    // Valid assignment -> must be processed
         ],
         rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John']],
@@ -259,7 +259,7 @@ test('invalid assignment continues to next assignment rather than breaking loop'
 
     $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'day');
 
-    // If ContinueToBreak occurred, John would not be analyzed
+    // The valid assignment after the invalid one must still be analyzed
     expect($result['total_resources_analyzed'])->toBe(1)
         ->and($result['utilization'])->toHaveKey('John');
 });
@@ -267,7 +267,7 @@ test('invalid assignment continues to next assignment rather than breaking loop'
 test('assignment with missing start/end date continues rather than breaking loop', function () {
     $data = makeResourceData(
         tasks: [
-            ['task_id' => 'T1', 'status_code' => 'TK_Active'], // No dates -> continue line 50
+            ['task_id' => 'T1', 'status_code' => 'TK_Active'], // No dates -> skipped
             ['task_id' => 'T2', 'status_code' => 'TK_Active', 'target_start_date' => '2024-01-02 00:00:00', 'target_end_date' => '2024-01-02 00:00:00'],
         ],
         taskrsrc: [
@@ -282,7 +282,7 @@ test('assignment with missing start/end date continues rather than breaking loop
     expect($result['utilization']['John'])->toHaveKey('2024-01-02');
 });
 
-test('BooleanOrToBooleanAnd on date checks is killed by null end date', function () {
+test('assignment with a start date but no end date is skipped', function () {
     $data = makeResourceData(
         tasks: [
             ['task_id' => 'T1', 'status_code' => 'TK_Active', 'target_start_date' => '2024-01-01 00:00:00'], // start valid, end null
@@ -293,12 +293,12 @@ test('BooleanOrToBooleanAnd on date checks is killed by null end date', function
 
     $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'day');
 
-    // With `! $start || ! $end`, it continues. If mutated to `&&`, it wouldn't continue and would crash on null end.
+    // A missing end date skips the assignment instead of failing on the null date
     expect($result['total_resources_analyzed'])->toBe(0);
 });
 
 // ---------------------------------------------------------------
-// Calculations (kills PlusEqualToMinusEqual, DivisionToMultiplication)
+// Calculations
 // ---------------------------------------------------------------
 
 test('qty_per_day divides qty by days and adds to total utilization', function () {
@@ -311,18 +311,14 @@ test('qty_per_day divides qty by days and adds to total utilization', function (
 
     $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'day');
 
-    // DivisionToMultiplication -> 20 * 2 = 40 (fails)
-    // PlusEqualToMinusEqual -> 0.0 -= 10 -> -10 (fails)
-    // DecrementFloat/IncrementFloat on 0.0 -> starts at -1.0 or 1.0 (fails)
     expect($result['utilization']['John']['2024-01-01'])->toBe(10.0);
 });
 
 // ---------------------------------------------------------------
-// Edge Cases & Defaults (kills null fallbacks and precision)
+// Edge cases and defaults
 // ---------------------------------------------------------------
 
 test('assignment with no target_qty defaults to 0', function () {
-    // Kills DecrementInteger: target_qty ?? 0 -> ?? -1
     $data = makeResourceData(
         tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'target_start_date' => '2024-01-01 00:00:00', 'target_end_date' => '2024-01-01 00:00:00']],
         taskrsrc: [['task_id' => 'T1', 'rsrc_id' => 'R1']], // No qty
@@ -345,11 +341,10 @@ test('over_allocation qty_per_day is rounded to exactly 2 decimal places', funct
     // Set daily limit to 2 to trigger overallocation
     $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'day', 2.0);
 
-    // Kills DecrementInteger/IncrementInteger on round(..., 2)
     expect($result['over_allocations'][0]['qty_per_day'])->toBe(3.33);
 });
 
-test('week period key concatenation format is correct', function () {
+test('week period key is the week start date followed by a (Week) suffix', function () {
     $data = makeResourceData(
         tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'target_start_date' => '2024-01-17 00:00:00', 'target_end_date' => '2024-01-17 00:00:00']],
         taskrsrc: [['task_id' => 'T1', 'rsrc_id' => 'R1', 'target_qty' => '8']],
@@ -359,12 +354,11 @@ test('week period key concatenation format is correct', function () {
     $result = (new ResourceUtilizationAnalyzer)->calculate($data, 'week');
     $keys = array_keys($result['utilization']['John']);
 
-    // Kills ConcatRemoveLeft / ConcatSwitchSides on ' (Week)'
     expect($keys[0])->toBe('2024-01-15 (Week)');
 });
 
 // ---------------------------------------------------------------
-// Config value (kills dailyLimit defaults and config fallback)
+// Config value
 // ---------------------------------------------------------------
 
 test('daily limit uses config value if present and no override provided', function () {
