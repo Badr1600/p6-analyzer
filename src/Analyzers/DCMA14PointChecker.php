@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\RelationshipData;
 use TeckFuture\P6Analyzer\Support\Config;
+use TeckFuture\P6Analyzer\Support\MissingLogic;
 
 /**
  * Performs the DCMA 14-point schedule assessment.
@@ -117,9 +118,6 @@ class DCMA14PointChecker
         $missingLogic = 0;
 
         if ($relationships !== null) {
-            $hasPredecessor = [];
-            $hasSuccessor = [];
-
             foreach ($relationships as $rel) {
                 $totalRelationships++;
 
@@ -133,30 +131,11 @@ class DCMA14PointChecker
                 if (str_ends_with($rel->pred_type, 'FS')) {
                     $fsRelationships++;
                 }
-
-                $successor = $rel->raw_data['task_id'] ?? '';
-                $predecessor = $rel->raw_data['pred_task_id'] ?? '';
-                if ($successor !== '') {
-                    $hasPredecessor[(string) $successor] = true;
-                }
-                if ($predecessor !== '') {
-                    $hasSuccessor[(string) $predecessor] = true;
-                }
             }
 
-            foreach ($activities as $activity) {
-                // DCMA point 1 covers incomplete activities; milestones are
-                // legitimately open-ended on one side.
-                if ($activity->status_code === 'Completed') {
-                    continue;
-                }
-                if (in_array($activity->task_type, ActivityData::MILESTONE_TASK_TYPES, true)) {
-                    continue;
-                }
-                if (! isset($hasPredecessor[$activity->id]) && ! isset($hasSuccessor[$activity->id])) {
-                    $missingLogic++;
-                }
-            }
+            // Point 1 uses the same rule as the schedule health check: an
+            // incomplete activity missing a predecessor or a successor.
+            $missingLogic = MissingLogic::find($activities, $relationships)->count();
         }
 
         $baseCount = $incompleteActivities > 0 ? $incompleteActivities : ($totalActivities > 0 ? $totalActivities : 1);
@@ -210,7 +189,7 @@ class DCMA14PointChecker
         $needsDataDate = 'No data date available.';
 
         $metrics['points'] = [
-            $point(1, 'missing_logic', 'Logic', '≤ 5% without predecessor or successor', $assessable && $hasRelationships,
+            $point(1, 'missing_logic', 'Logic', '≤ 5% missing a predecessor or successor', $assessable && $hasRelationships,
                 $hasRelationships ? $missingLogic : null,
                 $hasRelationships ? $pct($missingLogic, $baseCount) : null,
                 $assessable && $hasRelationships ? $pct($missingLogic, $baseCount) <= 5 : null,

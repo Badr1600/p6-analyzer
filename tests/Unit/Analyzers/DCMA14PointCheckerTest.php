@@ -93,10 +93,11 @@ test('relationship points are not assessable without relationship data', functio
 });
 
 test('leads and lags and relationship types are measured', function () {
+    // The chain starts at a milestone and ends at one, which keeps both ends exempt from the logic point
     $activities = collect([
-        makeDcmaPointActivity([], ['task_id' => '1']),
+        makeDcmaPointActivity([], ['task_id' => '1', 'task_type' => 'TT_Mile']),
         makeDcmaPointActivity(['task_code' => 'A2'], ['task_id' => '2']),
-        makeDcmaPointActivity(['task_code' => 'A3'], ['task_id' => '3']),
+        makeDcmaPointActivity(['task_code' => 'A3'], ['task_id' => '3', 'task_type' => 'TT_FinMile']),
     ]);
     $relationships = collect([
         makeDcmaRelationship('1', '2', 'PR_FS', '0'),
@@ -114,6 +115,45 @@ test('leads and lags and relationship types are measured', function () {
         ->and($byKey['relationship_types']['passed'])->toBeFalse()
         ->and($byKey['missing_logic']['count'])->toBe(0)
         ->and($byKey['missing_logic']['passed'])->toBeTrue();
+});
+
+test('the logic point counts activities missing a predecessor or a successor', function () {
+    $activities = collect([
+        makeDcmaPointActivity([], ['task_id' => '1']),                     // successor only
+        makeDcmaPointActivity(['task_code' => 'A2'], ['task_id' => '2']),  // linked both ways
+        makeDcmaPointActivity(['task_code' => 'A3'], ['task_id' => '3']),  // predecessor only
+    ]);
+    $relationships = collect([
+        makeDcmaRelationship('1', '2'),
+        makeDcmaRelationship('2', '3'),
+    ]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, '2024-06-01', $relationships);
+    $logic = collect($result['points'])->firstWhere('key', 'missing_logic');
+
+    expect($logic['count'])->toBe(2)
+        ->and($logic['percentage'])->toBe(66.67)
+        ->and($logic['passed'])->toBeFalse();
+});
+
+test('completed activities and WBS summaries are exempt from the logic point', function () {
+    $activities = collect([
+        makeDcmaPointActivity([], ['task_id' => '1', 'status_code' => 'TK_Complete']),
+        makeDcmaPointActivity(['task_code' => 'A2'], ['task_id' => '2', 'task_type' => 'TT_WBS']),
+    ]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, '2024-06-01', collect());
+    $logic = collect($result['points'])->firstWhere('key', 'missing_logic');
+
+    expect($logic['count'])->toBe(0)
+        ->and($logic['passed'])->toBeTrue();
+});
+
+test('the logic point states the rule it applies', function () {
+    $result = (new DCMA14PointChecker)->calculate(collect([makeDcmaPointActivity()]), '2024-06-01', collect());
+
+    expect(collect($result['points'])->firstWhere('key', 'missing_logic')['threshold_label'])
+        ->toBe('≤ 5% missing a predecessor or successor');
 });
 
 test('start and finish milestones are exempt from the logic point', function () {

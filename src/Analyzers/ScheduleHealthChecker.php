@@ -5,9 +5,13 @@ namespace TeckFuture\P6Analyzer\Analyzers;
 use Carbon\Carbon;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
+use TeckFuture\P6Analyzer\Support\MissingLogic;
 
 /**
  * Performs general schedule health checks beyond DCMA 14-point.
+ *
+ * `missing_logic` follows the rule of DCMA point 1 (see MissingLogic): an
+ * incomplete activity without a predecessor or without a successor.
  *
  * Alongside each count, the offending activities travel as drill-down lists
  * (id, task_code, name), capped at `details_limit` rows per check — the
@@ -39,25 +43,12 @@ class ScheduleHealthChecker
             'out_of_sequence_activities' => [],
         ];
 
-        $hasPredecessor = [];
-        $hasSuccessor = [];
-
         foreach ($relationships as $rel) {
             $lag = $rel->lag_hr_cnt ?? 0;
             if ($lag > 0) {
                 $health['lags_count']++;
             } elseif ($lag < 0) {
                 $health['leads_count']++;
-            }
-
-            $successor = $rel->raw_data['task_id'] ?? '';
-            $predecessor = $rel->raw_data['pred_task_id'] ?? '';
-
-            if ($successor) {
-                $hasPredecessor[$successor] = true;
-            }
-            if ($predecessor) {
-                $hasSuccessor[$predecessor] = true;
             }
         }
 
@@ -70,20 +61,15 @@ class ScheduleHealthChecker
             'name' => $activity->name,
         ];
 
+        $missingLogic = MissingLogic::find($activities, $relationships);
+        $health['missing_logic'] = $missingLogic->count();
+        $health['missing_logic_activities'] = $missingLogic->take(self::DETAILS_LIMIT)->map($describe)->all();
+
         foreach ($activities as $activity) {
             if (! isset($assignments[$activity->id])) {
                 $health['missing_resources']++;
                 if (count($health['missing_resources_activities']) < self::DETAILS_LIMIT) {
                     $health['missing_resources_activities'][] = $describe($activity);
-                }
-            }
-
-            if (! isset($hasPredecessor[$activity->id]) && ! isset($hasSuccessor[$activity->id])) {
-                if (! in_array($activity->task_type, ActivityData::MILESTONE_TASK_TYPES, true)) {
-                    $health['missing_logic']++;
-                    if (count($health['missing_logic_activities']) < self::DETAILS_LIMIT) {
-                        $health['missing_logic_activities'][] = $describe($activity);
-                    }
                 }
             }
 
