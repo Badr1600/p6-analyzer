@@ -12,6 +12,10 @@ use TeckFuture\P6Analyzer\Exceptions\XerParseException;
  * Supports both file-based and string-based parsing. The XER format uses
  * tab-delimited lines with `%T` (table), `%F` (fields), and `%R` (rows) prefixes.
  *
+ * P6 writes XER files as Windows-1252. Parsed values are always UTF-8: content that
+ * is not valid UTF-8 is converted from Windows-1252, and a leading UTF-8 byte order
+ * mark is dropped.
+ *
  * @example
  * ```php
  * $parser = new XerParser();
@@ -21,18 +25,25 @@ use TeckFuture\P6Analyzer\Exceptions\XerParseException;
  */
 class XerParser
 {
+    private const UTF8_BOM = "\xEF\xBB\xBF";
+
     /**
      * Parse an XER file into a ParsedXerData structure.
      *
-     * @throws XerParseException If the file does not exist or cannot be read.
+     * @throws XerParseException If the path is not a readable file (a directory is not one),
+     *                           or the content is not a valid XER file.
      */
     public function parseFile(string $filePath): ParsedXerData
     {
-        if (! file_exists($filePath)) {
+        if (! is_file($filePath)) {
             throw new XerParseException("XER file not found at path: {$filePath}");
         }
 
-        $content = file_get_contents($filePath);
+        if (! is_readable($filePath)) {
+            throw new XerParseException("Failed to read XER file at path: {$filePath}");
+        }
+
+        $content = @file_get_contents($filePath);
 
         if ($content === false) {
             throw new XerParseException("Failed to read XER file at path: {$filePath}");
@@ -43,9 +54,12 @@ class XerParser
 
     /**
      * Parse raw XER content string into a ParsedXerData structure.
+     *
+     * @throws XerParseException If the content has neither an ERMHDR header nor any table.
      */
     public function parse(string $content): ParsedXerData
     {
+        $content = $this->toUtf8($content);
         $content = str_replace("\r\n", "\n", $content);
         $lines = explode("\n", $content);
 
@@ -90,10 +104,32 @@ class XerParser
             }
         }
 
+        if ($header === '' && $tables->isEmpty()) {
+            throw new XerParseException('Content is not a valid XER file: it has no ERMHDR header and no tables');
+        }
+
         return new ParsedXerData(
             header: $header,
             tables: $tables,
         );
+    }
+
+    /**
+     * Drop a leading UTF-8 byte order mark and convert Windows-1252 content to UTF-8.
+     *
+     * Content that is already valid UTF-8 is left as it is.
+     */
+    private function toUtf8(string $content): string
+    {
+        if (str_starts_with($content, self::UTF8_BOM)) {
+            $content = substr($content, strlen(self::UTF8_BOM));
+        }
+
+        if (! mb_check_encoding($content, 'UTF-8')) {
+            $content = mb_convert_encoding($content, 'UTF-8', 'Windows-1252');
+        }
+
+        return $content;
     }
 
     /**
