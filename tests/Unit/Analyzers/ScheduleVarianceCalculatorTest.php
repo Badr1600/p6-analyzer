@@ -199,6 +199,73 @@ test('variance_days is exactly 30 for one month slip', function () {
 });
 
 // ---------------------------------------------------------------
+// Variance counts calendar days, not elapsed 24-hour periods
+// ---------------------------------------------------------------
+
+test('a finish moved a few hours within the same day is not a slip', function () {
+    $wb = collect([makeSvcActivity('ACT1', '2024-06-01 20:00')]);     // 12 h later, same date
+    $master = collect([makeSvcActivity('ACT1', '2024-06-01 08:00')]);
+
+    $result = (new ScheduleVarianceCalculator)->calculate($wb, $master);
+
+    expect($result['matched_count'])->toBe(1)
+        ->and($result['slipping_activities_count'])->toBe(0)
+        ->and($result['max_variance_days'])->toBe(0);
+});
+
+test('a finish on the next calendar day is a 1 day slip even when less than 24 hours later', function () {
+    $wb = collect([makeSvcActivity('ACT1', '2024-06-02 06:00')]);     // 10 h later, next date
+    $master = collect([makeSvcActivity('ACT1', '2024-06-01 20:00')]);
+
+    $result = (new ScheduleVarianceCalculator)->calculate($wb, $master);
+
+    expect($result['slipping_activities_count'])->toBe(1)
+        ->and($result['slipping_activities'][0]['variance_days'])->toBe(1);
+});
+
+test('a slip of a day and a half is 1 day, not rounded up to 2', function () {
+    $wb = collect([makeSvcActivity('ACT1', '2024-06-02 20:00')]);     // 36 h later, next date
+    $master = collect([makeSvcActivity('ACT1', '2024-06-01 08:00')]);
+
+    $result = (new ScheduleVarianceCalculator)->calculate($wb, $master);
+
+    expect($result['slipping_activities'][0]['variance_days'])->toBe(1)
+        ->and($result['max_variance_days'])->toBe(1);
+});
+
+test('start variance is a signed count of calendar days', function (string $baselineStart, string $currentStart, int $expectedDays) {
+    // The finish slips by 14 days so the activity is listed; only the start differs between cases.
+    $make = fn (string $start, string $finish) => ActivityData::fromModelOrArray([
+        'id' => '1', 'activity_id' => null, 'task_code' => 'A1',
+        'task_name' => 'T', 'status_code' => 'TK_Active', 'target_drtn_hr_cnt' => '40',
+        'raw_data' => ['target_start_date' => $start, 'target_end_date' => $finish],
+    ]);
+
+    $result = (new ScheduleVarianceCalculator)->calculate(
+        collect([$make($currentStart, '2024-06-15')]),
+        collect([$make($baselineStart, '2024-06-01')]),
+    );
+
+    expect($result['slipping_activities'][0]['start_variance_days'])->toBe($expectedDays);
+})->with([
+    'same day, 12 hours later' => ['2024-06-03 08:00', '2024-06-03 20:00', 0],
+    'same day, 12 hours earlier' => ['2024-06-03 20:00', '2024-06-03 08:00', 0],
+    'next day, 10 hours later' => ['2024-06-03 20:00', '2024-06-04 06:00', 1],
+    'previous day, 10 hours earlier' => ['2024-06-02 06:00', '2024-06-01 20:00', -1],
+    'five days earlier' => ['2024-06-10 08:00', '2024-06-05 17:00', -5],
+]);
+
+test('the dates of the schedules being compared are left untouched', function () {
+    $wb = makeSvcActivity('ACT1', '2024-06-15 17:30');
+    $master = makeSvcActivity('ACT1', '2024-06-01 08:15');
+
+    (new ScheduleVarianceCalculator)->calculate(collect([$wb]), collect([$master]));
+
+    expect($wb->target_end_date->toDateTimeString())->toBe('2024-06-15 17:30:00')
+        ->and($master->target_end_date->toDateTimeString())->toBe('2024-06-01 08:15:00');
+});
+
+// ---------------------------------------------------------------
 // max_variance_days
 // ---------------------------------------------------------------
 
