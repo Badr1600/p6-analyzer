@@ -4,6 +4,7 @@ use Illuminate\Container\Container;
 use TeckFuture\P6Analyzer\Analyzers\CriticalPathCalculator;
 use TeckFuture\P6Analyzer\Analyzers\DCMA14PointChecker;
 use TeckFuture\P6Analyzer\Analyzers\EarnedValueCalculator;
+use TeckFuture\P6Analyzer\Analyzers\FloatAnalyzer;
 use TeckFuture\P6Analyzer\Analyzers\ScheduleVarianceCalculator;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\Enums\EvmMethod;
@@ -141,3 +142,50 @@ test('evm options passed to the constructor win over the evm config', function (
     expect($actualCost([]))->toBe(0.0)
         ->and($actualCost(['infer_actuals_from_remaining' => true]))->toBe(60.0);
 });
+
+// ---------------------------------------------------------------
+// Shipped defaults and hours_per_day
+// ---------------------------------------------------------------
+
+test('the package config declares min_slip_days and hours_per_day', function () {
+    expect(config('p6-analyzer.min_slip_days'))->toBe(0)
+        ->and(config('p6-analyzer.hours_per_day'))->toBe(8);
+});
+
+test('hours_per_day converts float hours to days in the float distribution', function () {
+    $activities = collect([makeConfigActivity(['total_float_hr_cnt' => '88'])]); // 11 days of 8 h, 8.8 days of 10 h
+
+    $default = (new FloatAnalyzer)->calculate($activities)['distribution'];
+
+    config(['p6-analyzer.hours_per_day' => 10]);
+    $configured = (new FloatAnalyzer)->calculate($activities)['distribution'];
+
+    expect($default['eleven_to_thirty'])->toBe(1)
+        ->and($default['zero_to_ten'])->toBe(0)
+        ->and($configured['zero_to_ten'])->toBe(1)
+        ->and($configured['eleven_to_thirty'])->toBe(0);
+});
+
+test('hours_per_day converts the DCMA thresholds to days in the point labels', function () {
+    $activities = collect([makeConfigActivity()]);
+    $labels = fn () => collect((new DCMA14PointChecker)->calculate($activities)['points'])->pluck('threshold_label', 'key');
+
+    expect($labels()['high_float'])->toBe('≤ 5% over 44 days')
+        ->and($labels()['high_duration'])->toBe('≤ 5% over 44 days');
+
+    config(['p6-analyzer.hours_per_day' => 10]); // 352 h / 10 h = 35 days
+
+    expect($labels()['high_float'])->toBe('≤ 5% over 35 days')
+        ->and($labels()['high_duration'])->toBe('≤ 5% over 35 days');
+});
+
+test('a zero, negative or non-numeric hours_per_day falls back to 8', function (mixed $hoursPerDay) {
+    config(['p6-analyzer.hours_per_day' => $hoursPerDay]);
+    $activities = collect([makeConfigActivity(['total_float_hr_cnt' => '88'])]); // 11 days of 8 h
+
+    $distribution = (new FloatAnalyzer)->calculate($activities)['distribution'];
+    $labels = collect((new DCMA14PointChecker)->calculate($activities)['points'])->pluck('threshold_label', 'key');
+
+    expect($distribution['eleven_to_thirty'])->toBe(1)
+        ->and($labels['high_float'])->toBe('≤ 5% over 44 days');
+})->with([0, -8, null, 'abc']);

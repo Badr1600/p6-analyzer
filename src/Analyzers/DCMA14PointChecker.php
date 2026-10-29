@@ -51,6 +51,9 @@ class DCMA14PointChecker
 
         $highFloatThreshold = Config::get('high_float_threshold', 352);
         $highDurationThreshold = Config::get('high_duration_threshold', 352);
+        // A zero, negative or non-numeric setting cannot turn hours into days: use the 8 hour default.
+        $hoursPerDay = (float) Config::get('hours_per_day', 8);
+        $hoursPerDay = $hoursPerDay > 0 ? $hoursPerDay : 8.0;
         $penalties = Config::get('dcma_penalty_weights', [
             'high_float' => 1,
             'negative_float' => 2,
@@ -231,7 +234,7 @@ class DCMA14PointChecker
                 $hardConstraints, $pct($hardConstraints, $baseCount),
                 $assessable ? $pct($hardConstraints, $baseCount) <= 5 : null,
                 $assessable ? null : $noActivities),
-            $point(6, 'high_float', 'High float', '≤ 5% over '.round($highFloatThreshold / 8).' days', $assessable,
+            $point(6, 'high_float', 'High float', '≤ 5% over '.round($highFloatThreshold / $hoursPerDay).' days', $assessable,
                 $highFloat, $metrics['high_float_pct'],
                 $assessable ? $metrics['high_float_pct'] <= 5 : null,
                 $assessable ? null : $noActivities),
@@ -239,7 +242,7 @@ class DCMA14PointChecker
                 $negativeFloat, $metrics['negative_float_pct'],
                 $assessable ? $negativeFloat === 0 : null,
                 $assessable ? null : $noActivities),
-            $point(8, 'high_duration', 'High duration', '≤ 5% over '.round($highDurationThreshold / 8).' days', $assessable,
+            $point(8, 'high_duration', 'High duration', '≤ 5% over '.round($highDurationThreshold / $hoursPerDay).' days', $assessable,
                 $highDuration, $metrics['high_duration_pct'],
                 $assessable ? $metrics['high_duration_pct'] <= 5 : null,
                 $assessable ? null : $noActivities),
