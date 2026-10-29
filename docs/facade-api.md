@@ -52,3 +52,32 @@ use TeckFuture\P6Analyzer\Facades\P6Analyzer;
 
 P6Analyzer::load('/path/to/file.xer')->criticalPath();
 ```
+
+### Chain from `load()`, `parse()` or `fromData()`
+
+A manager holds the XER data it was loaded with, so every static call resolves a **new** manager from the container and nothing is kept between separate static calls. Start each analysis with `load()`, `parse()` or `fromData()` and chain the rest onto its result:
+
+```php
+// One chain, one manager
+$dcma = P6Analyzer::load('/path/to/file.xer')->dcma14Point('2024-01-15');
+
+// A separate static call gets a new manager that has no data
+P6Analyzer::load('/path/to/file.xer');
+
+try {
+    P6Analyzer::criticalPath();
+} catch (\RuntimeException $e) {
+    // "No XER data loaded. Call load(), parse(), or fromData() first."
+}
+```
+
+To run several analyses on one file, keep the manager that `load()` returns:
+
+```php
+$analyzer = P6Analyzer::load('/path/to/file.xer');
+
+$cpm = $analyzer->criticalPath();
+$dcma = $analyzer->dcma14Point('2024-01-15');
+```
+
+The container behaves the same way: `app(P6AnalyzerManager::class)` and `app('p6-analyzer')` return a new manager each time they are resolved.

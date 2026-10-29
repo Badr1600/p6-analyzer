@@ -28,8 +28,9 @@ class P6AnalyzerServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/p6-analyzer.php', 'p6-analyzer');
 
-        // Register the manager as a singleton
-        $this->app->singleton(P6AnalyzerManager::class);
+        // The manager holds the XER data it was loaded with, so it is bound, not shared:
+        // every resolution starts empty instead of seeing data loaded by another caller.
+        $this->app->bind(P6AnalyzerManager::class);
         $this->app->alias(P6AnalyzerManager::class, 'p6-analyzer');
 
         // Register all analyzers and IO classes as singletons
