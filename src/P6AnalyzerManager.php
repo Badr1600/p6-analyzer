@@ -132,6 +132,9 @@ class P6AnalyzerManager
      *                                         'duration', 'auto'); null uses the
      *                                         configured default, falling back to auto.
      * @return array{method: string, unit: string, data_date: ?string, planned_value: float, earned_value: float, actual_cost: float, budget_at_completion: float, cost_variance: float, schedule_variance: float, cpi: ?float, spi: ?float, estimate_at_completion: float, estimate_to_complete: float, variance_at_completion: float, tcpi: ?float, coverage: array{total_activities: int, measurable_activities: int, activities_with_data: int, coverage_pct: float}, actual_cost_sources: array}
+     *
+     * @throws \InvalidArgumentException When $method, or the configured evm.default_method it
+     *                                   falls back to, is a string that names no method.
      */
     public function earnedValue(?string $dataDate = null, EvmMethod|string|null $method = null): array
     {

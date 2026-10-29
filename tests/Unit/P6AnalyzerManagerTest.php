@@ -207,6 +207,22 @@ test('earnedValue() returns the documented result keys', function () {
     expect($result)->toHaveKeys(['cpi', 'spi', 'earned_value', 'actual_cost', 'budget_at_completion']);
 });
 
+test('earnedValue() takes the method as a string', function () {
+    $manager = loadedManager();
+
+    expect($manager->earnedValue(null, 'labor_units')['method'])->toBe('labor_units')
+        ->and($manager->earnedValue(null, 'duration')['method'])->toBe('duration');
+});
+
+test('earnedValue() reads an empty method string as auto', function () {
+    // The fixture's cost coverage clears the auto threshold, so auto resolves to cost
+    expect(loadedManager()->earnedValue(null, '')['method'])->toBe('cost');
+});
+
+test('earnedValue() rejects a method string it does not know', function () {
+    loadedManager()->earnedValue('2024-01-15', 'bogus');
+})->throws(InvalidArgumentException::class, 'Unknown EVM method "bogus". Valid values: cost, labor_units, duration, auto.');
+
 test('relationshipAnalysis() total_relationships is greater than zero', function () {
     $result = loadedManager()->relationshipAnalysis();
 

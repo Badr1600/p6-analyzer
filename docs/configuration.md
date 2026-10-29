@@ -51,6 +51,7 @@ All configuration values have sensible defaults and are optional to publish.
 - **Type:** `string` — `'cost'` | `'labor_units'` | `'duration'` | `'auto'`
 - **Default:** `'auto'`
 - Measurement basis used by `earnedValue()` when no method is passed. `auto` picks the best-covered method per project (preferring cost, then labor units) — units are never mixed across activities.
+- `null` or an empty string means `auto`. Any other value, a typo or a different case such as `'Cost'` included, makes `earnedValue()` throw an `\InvalidArgumentException` that lists the valid values, instead of quietly using `auto`.
 
 ### `evm.auto_coverage_threshold`
 - **Type:** `float` (0–1)

@@ -55,6 +55,12 @@ enum EvmMethod: string
 
     /**
      * Coerce a string (e.g. from config or request input) into a method.
+     *
+     * null and '' mean "not chosen" and give the default. Any other string
+     * must be a method's value: an unknown one (a typo, a different case) is
+     * rejected rather than quietly measured on a different basis.
+     *
+     * @throws \InvalidArgumentException When the string is not the value of a method.
      */
     public static function fromString(self|string|null $value, self $default = self::Auto): self
     {
@@ -66,6 +72,10 @@ enum EvmMethod: string
             return $default;
         }
 
-        return self::tryFrom($value) ?? $default;
+        return self::tryFrom($value) ?? throw new \InvalidArgumentException(sprintf(
+            'Unknown EVM method "%s". Valid values: %s.',
+            $value,
+            implode(', ', array_column(self::cases(), 'value')),
+        ));
     }
 }

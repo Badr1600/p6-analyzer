@@ -89,6 +89,18 @@ calculation, never mixed per activity:
 | `duration` | `target_drtn_hr_cnt` / — / `remain_drtn_hr_cnt` | `schedule_hours` |
 | `auto` *(default)* | Best-covered method above, preferring cost, then labor units | resolved |
 
+The method is an `EvmMethod` case or its string value (`'cost'`, `'labor_units'`, `'duration'` or `'auto'`). Any other
+string, a different case such as `'Cost'` included, throws an `\InvalidArgumentException` that lists the valid values.
+`null` uses the configured `evm.default_method`, and an unknown value there throws the same exception:
+
+```php
+try {
+    $analyzer->earnedValue('2024-06-15', 'Cost');
+} catch (\InvalidArgumentException $e) {
+    $e->getMessage(); // Unknown EVM method "Cost". Valid values: cost, labor_units, duration, auto.
+}
+```
+
 ```php
 use TeckFuture\P6Analyzer\Enums\EvmMethod;
 
