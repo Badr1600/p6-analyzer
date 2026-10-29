@@ -23,6 +23,7 @@ use TeckFuture\P6Analyzer\IO\ScheduleQueryEngine;
 use TeckFuture\P6Analyzer\IO\ScheduleUpdater;
 use TeckFuture\P6Analyzer\IO\XerExporter;
 use TeckFuture\P6Analyzer\IO\XerParser;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * The primary API entry point for the P6 Analyzer library.
@@ -133,7 +134,7 @@ class P6AnalyzerManager
     {
         $this->ensureLoaded();
 
-        $method ??= function_exists('config') ? config('p6-analyzer.evm.default_method') : null;
+        $method ??= Config::get('evm.default_method');
 
         return (new EarnedValueCalculator)->calculate(
             $this->data->getActivities(),

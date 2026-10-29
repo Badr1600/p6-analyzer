@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\ActivityEvmInput;
 use TeckFuture\P6Analyzer\Enums\EvmMethod;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * Calculates Earned Value Management (EVM) metrics.
@@ -380,15 +381,6 @@ class EarnedValueCalculator
             return $this->options[$key];
         }
 
-        try {
-            if (function_exists('config')) {
-                return config("p6-analyzer.evm.{$key}", $default);
-            }
-        } catch (\Throwable) {
-            // Framework helpers autoloaded without a booted application
-            // (standalone CLI usage) — fall through to the default.
-        }
-
-        return $default;
+        return Config::get("evm.{$key}", $default);
     }
 }
