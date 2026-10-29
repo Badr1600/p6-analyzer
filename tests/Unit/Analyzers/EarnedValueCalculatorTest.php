@@ -300,7 +300,7 @@ test('cost method never substitutes duration for a costless activity', function 
         ->and($result['earned_value'])->toBe(100.0)
         ->and($result['coverage']['measurable_activities'])->toBe(2)
         ->and($result['coverage']['activities_with_data'])->toBe(1)
-        ->and($result['coverage']['coverage_pct'])->toBe(0.5);
+        ->and($result['coverage']['coverage_pct'])->toBe(50.0);
 });
 
 // ---------------------------------------------------------------
@@ -530,7 +530,61 @@ test('milestones are excluded from coverage denominators', function () {
 
     expect($result['coverage']['total_activities'])->toBe(3)
         ->and($result['coverage']['measurable_activities'])->toBe(1)
-        ->and($result['coverage']['coverage_pct'])->toBe(1.0);
+        ->and($result['coverage']['coverage_pct'])->toBe(100.0);
+});
+
+// ---------------------------------------------------------------
+// coverage_pct is a 0-100 percentage
+// ---------------------------------------------------------------
+
+test('coverage_pct is a percentage rounded to 2 decimal places', function (int $withData, int $measurable, float $expected) {
+    $activities = collect([
+        ...array_fill(0, $withData, makeEvActivity(bac: 100.0, ac: 50.0, pctComplete: 50.0)),
+        ...array_fill(0, $measurable - $withData, makeEvActivity(duration: 40.0)), // no cost data
+    ]);
+
+    $coverage = (new EarnedValueCalculator)->calculate($activities, method: EvmMethod::Cost)['coverage'];
+
+    expect($coverage['measurable_activities'])->toBe($measurable)
+        ->and($coverage['activities_with_data'])->toBe($withData)
+        ->and($coverage['coverage_pct'])->toBe($expected);
+})->with([
+    'a third' => [1, 3, 33.33],
+    'two thirds' => [2, 3, 66.67],
+    'all of them' => [4, 4, 100.0],
+    'none of them' => [0, 4, 0.0],
+]);
+
+test('coverage_pct is 0 when there is nothing measurable', function () {
+    $coverage = (new EarnedValueCalculator)->calculate(collect())['coverage'];
+
+    expect($coverage['measurable_activities'])->toBe(0)
+        ->and($coverage['coverage_pct'])->toBe(0.0);
+});
+
+test('coverage_pct on the real XER fixture is a percentage of the measurable activities', function () {
+    $data = (new XerParser)->parseFile($this->fixturePath());
+
+    $coverage = (new EarnedValueCalculator)->calculate($data->getActivities(), '2024-06-15', EvmMethod::Cost)['coverage'];
+
+    // 275 of the 384 measurable activities carry cost data
+    expect($coverage['measurable_activities'])->toBe(384)
+        ->and($coverage['activities_with_data'])->toBe(275)
+        ->and($coverage['coverage_pct'])->toBe(71.61);
+});
+
+test('the report shows coverage as a percentage while auto still compares the 0 to 1 share', function () {
+    // Cost covers 1 of 3 activities: 33.33 as a percentage, 0.33 as a share. Auto compares the share
+    // with the 0.5 threshold, so it passes over cost; the 33.33 would wrongly have cleared 0.5.
+    $report = (new EarnedValueCalculator)->report(collect([
+        makeEvActivity(bac: 100.0, workQty: 80.0, pctComplete: 10.0),
+        makeEvActivity(workQty: 40.0, pctComplete: 0.0),
+        makeEvActivity(workQty: 60.0, pctComplete: 0.0),
+    ]));
+
+    expect($report['by_cost']['coverage']['coverage_pct'])->toBe(33.33)
+        ->and($report['by_labor_units']['coverage']['coverage_pct'])->toBe(100.0)
+        ->and($report['recommended'])->toBe('labor_units');
 });
 
 // ---------------------------------------------------------------

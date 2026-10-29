@@ -55,7 +55,7 @@ All configuration values have sensible defaults and are optional to publish.
 ### `evm.auto_coverage_threshold`
 - **Type:** `float` (0–1)
 - **Default:** `0.5`
-- Minimum share of measurable activities that must carry data for `auto` to select cost or labor units before falling back to duration.
+- Minimum share of measurable activities that must carry data for `auto` to select cost or labor units before falling back to duration. It is a share from 0 to 1 (`0.5` is half of them), not a percentage like `coverage_pct` in the earned value result, which runs from 0 to 100.
 
 ### `evm.infer_actuals_from_remaining`
 - **Type:** `bool`

@@ -125,10 +125,13 @@ class P6AnalyzerManager
     /**
      * Run earned value analysis under a single measurement method.
      *
+     * coverage_pct is the share of the measurable activities that carry data
+     * for the method, as a percentage from 0 to 100.
+     *
      * @param  EvmMethod|string|null  $method  Measurement basis ('cost', 'labor_units',
      *                                         'duration', 'auto'); null uses the
      *                                         configured default, falling back to auto.
-     * @return array{method: string, unit: string, data_date: ?string, planned_value: float, earned_value: float, actual_cost: float, budget_at_completion: float, cost_variance: float, schedule_variance: float, cpi: ?float, spi: ?float, estimate_at_completion: float, estimate_to_complete: float, variance_at_completion: float, tcpi: ?float, coverage: array, actual_cost_sources: array}
+     * @return array{method: string, unit: string, data_date: ?string, planned_value: float, earned_value: float, actual_cost: float, budget_at_completion: float, cost_variance: float, schedule_variance: float, cpi: ?float, spi: ?float, estimate_at_completion: float, estimate_to_complete: float, variance_at_completion: float, tcpi: ?float, coverage: array{total_activities: int, measurable_activities: int, activities_with_data: int, coverage_pct: float}, actual_cost_sources: array}
      */
     public function earnedValue(?string $dataDate = null, EvmMethod|string|null $method = null): array
     {

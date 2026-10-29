@@ -89,7 +89,7 @@ $evm = $analyzer->earnedValue('2024-01-15', EvmMethod::LaborUnits);
 
 $evm['cpi'];                  // ?float — null when actual cost is unknowable
 $evm['method'];               // which basis actually ran, e.g. 'cost'
-$evm['coverage'];             // how many measurable activities carried data
+$evm['coverage'];             // how many measurable activities carried data; coverage_pct is 0–100
 $evm['actual_cost_sources'];  // tracked vs inferred vs status-derived AC
 
 // Every method in one pass (mirrors P6's By-Cost / By-Labor-Units pairs)

@@ -105,6 +105,12 @@ $result = $analyzer->earnedValue('2024-06-15', EvmMethod::LaborUnits); // explic
 `cpi`, `spi`, and `tcpi` are `null` — not a fake `1.0` — when their
 denominators are zero (no actuals tracked, no planned value at the data date).
 
+`coverage` reports how much of the schedule the method could use: `total_activities` is every activity,
+`measurable_activities` leaves out WBS summaries and milestones, and `activities_with_data` is how many of those carry
+data for the method. `coverage_pct` is `activities_with_data` as a percentage of `measurable_activities`, from 0 to 100
+and rounded to two decimals (`71.61` for 275 of 384). It is a percentage, unlike `evm.auto_coverage_threshold`, which is
+a share from 0 to 1.
+
 All methods in one pass, mirroring P6's paired By-Cost / By-Labor-Units
 summaries:
 
