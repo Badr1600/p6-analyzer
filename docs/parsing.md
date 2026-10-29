@@ -55,9 +55,12 @@ P6 writes XER files as Windows-1252, and the parser always returns UTF-8 strings
   byte `0xE9` becomes `é`, `0xA3` becomes `£` and `0x80` becomes `€`.
 - Content that is already valid UTF-8 is left as it is.
 
-The rule is only whether the bytes are valid UTF-8. A Windows-1252 file whose accented letters happen to
-form a valid UTF-8 sequence (the text `Ã©`, for instance) is therefore read as UTF-8. That is rare in
-practice.
+The rule is only whether the bytes are valid UTF-8, and it covers the whole input. A file that mixes both
+encodings is converted as Windows-1252 throughout, and a Windows-1252 file whose accented letters happen to
+form a valid UTF-8 sequence (the text `Ã©`, for instance) is read as UTF-8. Neither is common in practice.
+
+`XerExporter` converts the values back to Windows-1252 when it writes, so they keep their original bytes
+through a parse and an export. See [Exporting Data](exporting.md#encoding).
 
 ## ParsedXerData Structure
 
