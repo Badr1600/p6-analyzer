@@ -18,11 +18,63 @@ $result = $analyzer->floatAnalysis();
 // ['total_activities', 'distribution' => ['negative', 'zero_to_ten', 'eleven_to_thirty', 'thirty_plus', 'missing']]
 ```
 
+Total float is bucketed in days, converting hours with the `hours_per_day` setting (default 8): `negative` is below 0,
+`zero_to_ten` is 0 to 10, `eleven_to_thirty` is above 10 up to 30 and `thirty_plus` is above 30. `missing` counts the
+activities that have no total float.
+
 ## DCMA 14-Point Check (`DCMA14PointChecker`)
 
 ```php
 $result = $analyzer->dcma14Point('2024-01-15');
-// ['total_activities', 'incomplete_activities', 'negative_float_count', 'high_float_count', 'overall_score']
+// ['assessable', 'total_activities', 'incomplete_activities',
+//  'negative_float_count', 'negative_float_pct',
+//  'high_float_count', 'high_float_pct',
+//  'high_duration_count', 'high_duration_pct',
+//  'invalid_dates_count', 'points', 'overall_score']
+```
+
+`overall_score` runs from 0 to 100. It is derived from the high float, negative float, high duration and invalid-date
+checks only (weighted by `dcma_penalty_weights`), so stored scores stay comparable across versions. `assessable` is
+`false` when there are no activities. The `*_pct` values are percentages of `incomplete_activities` (of
+`total_activities` when none is incomplete).
+
+`points` holds one entry for each of the 14 DCMA points, in DCMA order, and every entry has the same keys:
+
+```php
+foreach ($result['points'] as $point) {
+    // ['id', 'key', 'name', 'threshold_label', 'assessable', 'count', 'percentage', 'passed', 'reason']
+}
+```
+
+`count` and `percentage` are what the point measures and `passed` is the verdict against `threshold_label` (the day
+counts of points 6 and 8 follow `hours_per_day`). A point that cannot be assessed has `assessable => false`,
+`passed => null` and a `reason` that says what is missing.
+
+| `id` | `key` | Assessable when |
+|---|---|---|
+| 1 | `missing_logic` | relationship data is provided |
+| 2 | `leads` | relationship data is provided |
+| 3 | `lags` | relationship data is provided |
+| 4 | `relationship_types` | relationship data is provided and not empty |
+| 5 | `hard_constraints` | there are activities |
+| 6 | `high_float` | there are activities |
+| 7 | `negative_float` | there are activities |
+| 8 | `high_duration` | there are activities |
+| 9 | `invalid_dates` | there are activities and a data date |
+| 10 | `resources` | never: needs a cost/resource loading assessment |
+| 11 | `missed_activities` | there are activities and a data date |
+| 12 | `critical_path_test` | never: needs an intentional-delay simulation |
+| 13 | `cpli` | never: needs an approved baseline |
+| 14 | `bei` | never: needs an approved baseline |
+
+Points 1 to 4 need the relationships as the checker's third argument. `P6AnalyzerManager::dcma14Point()` passes only
+the activities and the data date, so through the manager those four points report `assessable => false`. To assess
+them, call the checker directly:
+
+```php
+use TeckFuture\P6Analyzer\Analyzers\DCMA14PointChecker;
+
+$result = (new DCMA14PointChecker)->calculate($data->getActivities(), '2024-01-15', $data->getRelationships());
 ```
 
 ## Earned Value (`EarnedValueCalculator`)
@@ -89,17 +141,49 @@ $result = $analyzer->relationshipAnalysis();
 
 ## Schedule Variance (`ScheduleVarianceCalculator`)
 
+Compares the loaded schedule with a baseline. Activities are matched by `task_code`.
+
 ```php
+use TeckFuture\P6Analyzer\IO\XerParser;
+
 $baseline = (new XerParser)->parseFile('/path/to/baseline.xer');
-$result = $analyzer->scheduleVariance($baseline->getData());
-// ['total_activities_compared', 'slipping_activities_count', 'average_variance_days', 'slipping_activities']
+$result = $analyzer->scheduleVariance($baseline);
+// ['total_activities_compared', 'current_activities_count', 'matched_count', 'unmatched_count',
+//  'slipping_activities_count', 'average_variance_days', 'max_variance_days', 'slipping_activities']
+```
+
+`total_activities_compared` and `matched_count` count the activities found in both schedules, and `unmatched_count` is
+the number of current activities with no match in the baseline (`current_activities_count` is the sum of the two). An
+activity slips when its finish is later than its baseline finish by more than `min_slip_days` days (default 0).
+`average_variance_days` and `max_variance_days` cover the slipping activities only.
+
+`master_*` keys hold the baseline dates and `workbench_*` keys the current ones. The variances are in days, positive
+when the current date is later:
+
+```php
+foreach ($result['slipping_activities'] as $activity) {
+    // ['id', 'task_code', 'name', 'status', 'total_float_hr',
+    //  'master_start', 'workbench_start', 'start_variance_days',
+    //  'master_finish', 'workbench_finish', 'variance_days']
+}
 ```
 
 ## Schedule Health (`ScheduleHealthChecker`)
 
 ```php
 $result = $analyzer->scheduleHealth('2024-01-15');
-// ['total_activities', 'missing_resources', 'missing_logic', 'out_of_sequence', 'lags_count', 'leads_count']
+// ['total_activities', 'missing_resources', 'missing_logic', 'out_of_sequence',
+//  'lags_count', 'leads_count', 'details_limit',
+//  'missing_resources_activities', 'missing_logic_activities', 'out_of_sequence_activities']
+```
+
+Each `*_activities` list names the activities behind the matching count and holds at most `details_limit` entries (200);
+the counts stay exact when a list is capped. `out_of_sequence` needs the data date.
+
+```php
+foreach ($result['missing_logic_activities'] as $activity) {
+    // ['id', 'task_code', 'name']
+}
 ```
 
 ## Resource Utilization (`ResourceUtilizationAnalyzer`)
@@ -136,7 +220,7 @@ bucket key in `resource` plus `kind` and `label`. Resource buckets and their out
 when no line is role-only.
 
 ```php
-$result = $analyzer->resourceUtilization('week', 8.0, null, null, [12 => 'Planner']);
+$result = $analyzer->resourceUtilization('week', 8.0, null, [12 => 'Planner']);
 ```
 
 ## WBS Analysis (`WbsAnalyzer`)

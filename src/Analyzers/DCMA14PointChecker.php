@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\RelationshipData;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * Performs the DCMA 14-point schedule assessment.
@@ -48,9 +49,12 @@ class DCMA14PointChecker
         $hardConstraints = 0;
         $missedActivities = 0;
 
-        $highFloatThreshold = $this->configValue('high_float_threshold', 352);
-        $highDurationThreshold = $this->configValue('high_duration_threshold', 352);
-        $penalties = $this->configValue('dcma_penalty_weights', [
+        $highFloatThreshold = Config::get('high_float_threshold', 352);
+        $highDurationThreshold = Config::get('high_duration_threshold', 352);
+        // A zero, negative or non-numeric setting cannot turn hours into days: use the 8 hour default.
+        $hoursPerDay = (float) Config::get('hours_per_day', 8);
+        $hoursPerDay = $hoursPerDay > 0 ? $hoursPerDay : 8.0;
+        $penalties = Config::get('dcma_penalty_weights', [
             'high_float' => 1,
             'negative_float' => 2,
             'high_duration' => 1,
@@ -230,7 +234,7 @@ class DCMA14PointChecker
                 $hardConstraints, $pct($hardConstraints, $baseCount),
                 $assessable ? $pct($hardConstraints, $baseCount) <= 5 : null,
                 $assessable ? null : $noActivities),
-            $point(6, 'high_float', 'High float', '≤ 5% over '.round($highFloatThreshold / 8).' days', $assessable,
+            $point(6, 'high_float', 'High float', '≤ 5% over '.round($highFloatThreshold / $hoursPerDay).' days', $assessable,
                 $highFloat, $metrics['high_float_pct'],
                 $assessable ? $metrics['high_float_pct'] <= 5 : null,
                 $assessable ? null : $noActivities),
@@ -238,7 +242,7 @@ class DCMA14PointChecker
                 $negativeFloat, $metrics['negative_float_pct'],
                 $assessable ? $negativeFloat === 0 : null,
                 $assessable ? null : $noActivities),
-            $point(8, 'high_duration', 'High duration', '≤ 5% over '.round($highDurationThreshold / 8).' days', $assessable,
+            $point(8, 'high_duration', 'High duration', '≤ 5% over '.round($highDurationThreshold / $hoursPerDay).' days', $assessable,
                 $highDuration, $metrics['high_duration_pct'],
                 $assessable ? $metrics['high_duration_pct'] <= 5 : null,
                 $assessable ? null : $noActivities),
@@ -279,14 +283,5 @@ class DCMA14PointChecker
         $metrics['overall_score'] = max(0, min(100, round(100 - $penalty, 2)));
 
         return $metrics;
-    }
-
-    private function configValue(string $key, mixed $default): mixed
-    {
-        if (function_exists('config')) {
-            return config("p6-analyzer.{$key}", $default);
-        }
-
-        return $default;
     }
 }

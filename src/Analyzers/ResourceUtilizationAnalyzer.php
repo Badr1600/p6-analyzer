@@ -4,6 +4,7 @@ namespace TeckFuture\P6Analyzer\Analyzers;
 
 use Carbon\Carbon;
 use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * Calculates resource utilization over time and flags over-allocations.
@@ -34,7 +35,7 @@ class ResourceUtilizationAnalyzer
             throw new \InvalidArgumentException('weekStartsOn must be a day number from 0 (Sunday) to 6 (Saturday).');
         }
 
-        $dailyLimit = $dailyLimit ?? $this->configValue('resource_overallocation_daily_limit', 8);
+        $dailyLimit = $dailyLimit ?? Config::get('resource_overallocation_daily_limit', 8);
         $activities = $data->getActivities()->keyBy('id');
         $assignments = $data->getTable('TASKRSRC');
         $resources = $data->getTable('RSRC')->keyBy('rsrc_id');
@@ -204,14 +205,5 @@ class ResourceUtilizationAnalyzer
         } catch (\Exception) {
             return null;
         }
-    }
-
-    private function configValue(string $key, mixed $default): mixed
-    {
-        if (function_exists('config')) {
-            return config("p6-analyzer.{$key}", $default);
-        }
-
-        return $default;
     }
 }

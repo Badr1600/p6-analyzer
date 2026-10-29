@@ -23,6 +23,7 @@ use TeckFuture\P6Analyzer\IO\ScheduleQueryEngine;
 use TeckFuture\P6Analyzer\IO\ScheduleUpdater;
 use TeckFuture\P6Analyzer\IO\XerExporter;
 use TeckFuture\P6Analyzer\IO\XerParser;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * The primary API entry point for the P6 Analyzer library.
@@ -100,7 +101,7 @@ class P6AnalyzerManager
     /**
      * Run float distribution analysis.
      *
-     * @return array{total_activities: int, distribution: array}
+     * @return array{total_activities: int, distribution: array{negative: int, zero_to_ten: int, eleven_to_thirty: int, thirty_plus: int, missing: int}}
      */
     public function floatAnalysis(): array
     {
@@ -112,7 +113,7 @@ class P6AnalyzerManager
     /**
      * Run DCMA 14-point schedule quality check.
      *
-     * @return array{total_activities: int, incomplete_activities: int, negative_float_count: int, overall_score: float}
+     * @return array{assessable: bool, total_activities: int, incomplete_activities: int, negative_float_count: int, negative_float_pct: float, high_float_count: int, high_float_pct: float, high_duration_count: int, high_duration_pct: float, invalid_dates_count: int, points: list<array{id: int, key: string, name: string, threshold_label: string, assessable: bool, count: ?int, percentage: ?float, passed: ?bool, reason: ?string}>, overall_score: float|int}
      */
     public function dcma14Point(?string $dataDate = null): array
     {
@@ -133,7 +134,7 @@ class P6AnalyzerManager
     {
         $this->ensureLoaded();
 
-        $method ??= function_exists('config') ? config('p6-analyzer.evm.default_method') : null;
+        $method ??= Config::get('evm.default_method');
 
         return (new EarnedValueCalculator)->calculate(
             $this->data->getActivities(),
@@ -158,7 +159,7 @@ class P6AnalyzerManager
     /**
      * Run relationship analysis.
      *
-     * @return array{total_relationships: int, type_distribution: array, lag_distribution: array}
+     * @return array{total_relationships: int, type_distribution: array, type_percentages: array, lag_distribution: array}
      */
     public function relationshipAnalysis(): array
     {
@@ -171,7 +172,7 @@ class P6AnalyzerManager
      * Run schedule variance (slippage) analysis.
      *
      * @param  ParsedXerData  $masterData  Baseline schedule to compare against.
-     * @return array{total_activities_compared: int, slipping_activities_count: int, average_variance_days: float}
+     * @return array{total_activities_compared: int, current_activities_count: int, matched_count: int, unmatched_count: int, slipping_activities_count: int, average_variance_days: float, max_variance_days: int, slipping_activities: array<int, array<string, mixed>>}
      */
     public function scheduleVariance(ParsedXerData $masterData): array
     {
@@ -190,7 +191,7 @@ class P6AnalyzerManager
     /**
      * Run schedule health check.
      *
-     * @return array{total_activities: int, missing_resources: int, missing_logic: int, out_of_sequence: int}
+     * @return array{total_activities: int, missing_resources: int, missing_logic: int, out_of_sequence: int, lags_count: int, leads_count: int, details_limit: int, missing_resources_activities: list<array{id: string, task_code: ?string, name: ?string}>, missing_logic_activities: list<array{id: string, task_code: ?string, name: ?string}>, out_of_sequence_activities: list<array{id: string, task_code: ?string, name: ?string}>}
      */
     public function scheduleHealth(?string $dataDate = null): array
     {
@@ -205,7 +206,7 @@ class P6AnalyzerManager
      * @param  int|null  $weekStartsOn  The day the 'week' period starts on: Carbon's day number, 0 (Sunday) to 6
      *                                  (Saturday). Null (the default) keeps the Carbon locale's first day.
      * @param  array<int|string, string>  $roleLabels  Display labels for role-only lines, keyed by role_id.
-     * @return array{utilization: array, over_allocations: array, total_resources_analyzed: int, roles: array<string, array{kind: string, role_id: string, label: string}>}
+     * @return array{utilization: array, over_allocations: list<array{resource: string, date: string, activity: string, qty_per_day: float, activities: list<array{activity: string, qty_per_day: float}>, kind?: string, label?: string}>, total_resources_analyzed: int, roles: array<string, array{kind: string, role_id: string, label: string}>}
      */
     public function resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null, array $roleLabels = []): array
     {
@@ -229,7 +230,7 @@ class P6AnalyzerManager
     /**
      * Generate a lookahead schedule.
      *
-     * @return array{data_date: string, lookahead_weeks: int, activity_count: int, activities: array}
+     * @return array{data_date: string, lookahead_weeks: int, end_date: string, activity_count: int, activities: array}
      */
     public function lookahead(string $dataDate, int $weeks = 3): array
     {
@@ -241,7 +242,7 @@ class P6AnalyzerManager
     /**
      * Summarize work packages.
      *
-     * @return array<int, array{name: string, activity_count: int, percent_complete_by_count: float}>
+     * @return array<int, array{name: string, activity_count: int, total_duration_hr: float, total_cost: float, completed_activities: int, percent_complete_by_count: float}>
      */
     public function workPackages(): array
     {
@@ -253,7 +254,7 @@ class P6AnalyzerManager
     /**
      * Summarize overall progress.
      *
-     * @return array{total_activities: int, status_counts: array, overall_percent_complete_by_duration: float}
+     * @return array{total_activities: int, status_counts: array, status_percentages: array, overall_percent_complete_by_duration: float}
      */
     public function progress(): array
     {
@@ -265,7 +266,7 @@ class P6AnalyzerManager
     /**
      * Generate a comprehensive report.
      *
-     * @return array{generated_at: string, project_info: array, progress: array, health: array, float_distribution: array, critical_path: array, work_packages: array}
+     * @return array{generated_at: string, data_date: string|null, project_info: array, progress: array, health: array, float_distribution: array, critical_path: array, work_packages: array}
      */
     public function report(?string $dataDate = null): array
     {

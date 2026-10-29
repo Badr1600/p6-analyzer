@@ -4,6 +4,7 @@ namespace TeckFuture\P6Analyzer\Analyzers;
 
 use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * Analyzes total float distribution across activities.
@@ -19,6 +20,9 @@ class FloatAnalyzer
     public function calculate(Collection|array $activities): array
     {
         $activities = is_array($activities) ? collect($activities) : $activities;
+        // A zero, negative or non-numeric setting cannot turn hours into days: use the 8 hour default.
+        $hoursPerDay = (float) Config::get('hours_per_day', 8);
+        $hoursPerDay = $hoursPerDay > 0 ? $hoursPerDay : 8.0;
         $distribution = [
             'negative' => 0,
             'zero_to_ten' => 0,
@@ -36,7 +40,7 @@ class FloatAnalyzer
                 continue;
             }
 
-            $floatDays = $floatHr / 8;
+            $floatDays = $floatHr / $hoursPerDay;
 
             if ($floatDays < 0) {
                 $distribution['negative']++;
