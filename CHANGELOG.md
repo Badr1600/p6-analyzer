@@ -6,17 +6,139 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-29
+
+Version 3.0 makes the analyzers agree with each other and with P6, hardens reading and writing XER and CSV files,
+and renames result keys to say what they hold. The facade no longer shares loaded data between calls, DCMA point 1
+and the health check apply one missing-logic rule, over-allocation is judged per resource per day, parsed values
+are UTF-8 and XER exports are Windows-1252.
+[docs/upgrading.md](https://github.com/Badr1600/p6-analyzer/blob/main/docs/upgrading.md) explains every breaking
+change and how to migrate. 2.x no longer receives security fixes.
+
+### Added
+- `hours_per_day` config key (default `8`). It converts hours to days for the float distribution buckets of
+  `floatAnalysis()` and the day counts in the DCMA high float and high duration labels, which assumed an 8-hour
+  day. A zero, negative or non-numeric value falls back to 8.
+- `min_slip_days` is in the shipped config file (default `0`). The schedule variance calculator already read it,
+  but it could not be discovered or published.
+- `CsvExporter` takes an `escapeFormulas` constructor argument (default `true`):
+  `new CsvExporter(escapeFormulas: false)` turns off the formula guard described under Changed.
+- `ActivityData::WBS_SUMMARY_TASK_TYPE` (`TT_WBS`), `START_MILESTONE_TASK_TYPE` (`TT_Mile`),
+  `FINISH_MILESTONE_TASK_TYPE` (`TT_FinMile`) and `MILESTONE_TASK_TYPES`: the task types P6 writes, in one place
+  for the DCMA check, the health check and earned value.
+- `Support\MissingLogic`, the missing-logic rule shared by DCMA point 1 and the health check, and
+  `Support\PercentComplete`, the percent complete rule shared by earned value and `progress()`.
+- Each `workPackages()` item, in `report()['work_packages']` too, has a `wbs_id` key: the WBS node the package
+  stands for, or `'unassigned'`.
+
+### Changed
+- **Breaking:** The `P6Analyzer` facade resolves a new `P6AnalyzerManager` for every static call, and the container
+  binds the manager instead of sharing one instance, so `app(P6AnalyzerManager::class)` and constructor injection
+  also give a new one each time. Data loaded by one call is no longer seen by the next: `P6Analyzer::load($path);`
+  followed by `P6Analyzer::criticalPath();` throws "No XER data loaded". Chain from `load()`, `parse()` or
+  `fromData()`, or keep the manager they return.
+- **Breaking:** `XerParser::parse()` and `parseFile()`, and so `load()` and `parse()` on the manager and the
+  facade, throw `XerParseException` for content with neither an `ERMHDR` header nor any table, such as an empty
+  string or a file that is not XER. They returned empty data. `parseFile()` also throws it for a path that is not
+  a regular file: a directory, a named pipe, a process substitution such as `<(...)`, or `/dev/stdin` when it is a
+  pipe. 2.x read pipes, so read such input yourself and pass the string to `parse()`. Content with tables but no
+  header is still accepted.
+- **Breaking:** `XerParser` returns UTF-8. Content that is not valid UTF-8 is converted from Windows-1252, the
+  encoding P6 writes, so values such as `£` and `é` come out right; 2.x kept the file's bytes. Content that is
+  already valid UTF-8 is left as it is.
+- **Breaking:** `XerExporter::export()` and `exportXer()` return Windows-1252, the encoding P6 reads, converting
+  the values back, so the values of a parsed P6 file keep their bytes through an export. 2.x wrote the values'
+  bytes as they were, so UTF-8 input, or text set in PHP, came out as UTF-8. A character Windows-1252 has no byte
+  for is written as `?`.
+- **Breaking:** `CsvExporter`, and so `exportCsv()`, puts a single quote in front of a string cell that starts
+  with `=`, `+`, `-`, `@`, a tab or a carriage return, so a spreadsheet shows it as text instead of running it as
+  a formula. Header cells are covered, numeric strings such as `-16.0` and `+5` are left alone, and P6 GUIDs that
+  start with `+` get the quote too. `exportCsv()` always applies the guard.
+- **Breaking:** Each `slipping_activities` entry of `scheduleVariance()` and
+  `ScheduleVarianceCalculator::calculate()` uses `baseline_start`, `baseline_finish`, `current_start` and
+  `current_finish` instead of `master_start`, `master_finish`, `workbench_start` and `workbench_finish`. The
+  argument of `scheduleVariance()` is `$baselineData` instead of `$masterData`, on the manager and the facade.
+- **Breaking:** `scheduleHealth()`, and so `report()['health']`, returns `actual_start_after_data_date` and
+  `actual_start_after_data_date_activities` instead of `out_of_sequence` and `out_of_sequence_activities`. The
+  check is unchanged: it counts the activities whose actual start is after the data date, which is not P6's
+  out-of-sequence progress.
+- **Breaking:** `coverage.coverage_pct` is a percentage from 0 to 100, rounded to two decimals like the package's
+  other percentages, instead of a 0–1 ratio: on the example schedule `0.72` is now `71.61`. This applies to
+  `earnedValue()`, the `by_cost`, `by_labor_units` and `by_duration` blocks of `earnedValueReport()`, and
+  `EarnedValueCalculator`. `evm.auto_coverage_threshold` stays a 0–1 share.
+- **Breaking:** An unknown EVM method string throws `InvalidArgumentException` naming the value and listing the
+  valid ones (`Unknown EVM method "Cost". Valid values: cost, labor_units, duration, auto.`), whether it is passed
+  to `earnedValue()` or `EvmMethod::fromString()` or set as `evm.default_method`. It fell back to the default
+  without a word: `auto`, or the `$default` that `fromString()` was given. `null` and `''` are still accepted:
+  `fromString()` returns its default for both, and `earnedValue()` reads `null` as the configured
+  `evm.default_method` and `''` as `auto`. A method passed to `earnedValue()` still wins over the configured one.
+- **Breaking:** `missing_logic` in `scheduleHealth()` and DCMA point 1 apply one rule, the DCMA one: an
+  incomplete activity with no predecessor or no successor. WBS summaries (`TT_WBS`) are never examined, a start
+  milestone needs only a successor and a finish milestone only a predecessor. Before, both counted only
+  activities with no link at all, so an open end was never reported, and both counted WBS summaries; the health
+  check also counted completed activities. On the package's example schedule (`tests/fixtures/example_xer_file.xer`
+  in the repository) `missing_logic` goes from 11 to 6. Point 1's percentage is measured against the activities
+  the rule examines, and its label reads "≤ 5% missing a predecessor or successor".
+- **Breaking:** Each `over_allocations` entry is now one resource-day: `qty_per_day` is the day's total and the new
+  `activities` key lists every contributing activity with its hours. `activity` is kept and holds the first
+  contributor. The limit is compared with the rounded total that is reported. The entries are now grouped by
+  resource and sorted by date within each resource; 2.x listed them in the order of the assignment lines.
+- **Breaking:** `ScheduleUpdater::addActivity()` throws `XerParseException`, and adds nothing, when an activity
+  with the same `task_id` exists. It used to add a duplicate.
+- **Breaking:** `XerExporter::exportToFile()` and `exportXerToFile()` write a temporary file next to the target
+  and move it over the target, so a failed export leaves an existing file as it was instead of truncating it. The
+  directory must be writable, a stream wrapper such as `php://output` no longer works (write the string from
+  `export()` yourself), and a failure returns `false` without a PHP warning. An empty path returns `false` too,
+  where 2.x threw a `ValueError`. The new file keeps the old one's permissions, a symbolic link is followed, and
+  a short write counts as a failure.
+- `XerExporter` ends its output with the `%E` end marker, as P6 does, so an empty document exports as `%E`.
+
+### Removed
+- **Breaking:** `ActivityData::$activity_id`, and with it the constructor's second parameter. XER rows have no
+  such column, so it was always `null` for imported data. `fromModelOrArray()` no longer reads an `activity_id`
+  key or attribute; an array without a `raw_data` key keeps the key in `raw_data`.
+
 ### Fixed
 - Resource over-allocation is now judged per resource per day, as the docs and config describe. The hours of all
   of a resource's (or role's) assignment lines on a day are summed and compared with the daily limit. Before,
   each line was compared on its own: two overlapping 6 h assignments (12 h in a day) were never flagged, and
   several lines over the limit on the same day produced one entry each.
 - Utilization dropped the last day of an assignment that ends earlier in the day than it started.
-
-### Changed
-- Each `over_allocations` entry is now one resource-day: `qty_per_day` is the day's total and the new
-  `activities` key lists every contributing activity with its hours. `activity` is kept and holds the first
-  contributor.
+- `dcma14Point()`, and so the facade, passes the schedule's relationships to the DCMA check, so points 1 to 4
+  (logic, leads, lags, relationship types) are assessed. They always reported "Relationship data was not
+  provided." A schedule without relationships is assessed against zero of them, and point 4 then reports "No
+  relationships in scope." `overall_score` is unchanged.
+- The missing-logic checks know P6's start milestone type, `TT_Mile`. They looked for `TT_StartMile`, which P6
+  never writes, so a start milestone was examined as an ordinary activity.
+- Calling the analyzers without a booted Laravel application no longer throws "Target class [config] does not
+  exist." from `criticalPath()`, `dcma14Point()`, `scheduleVariance()`, `resourceUtilization()`, `earnedValue()`
+  and `report()`. Config is read through `Support\Config::get()`, which falls back to the default.
+- Schedule variance is measured in whole calendar days and ignores the time of day. Carbon 3's fractional day
+  difference was rounded, so a finish moved 12 hours within one day counted as a one-day slip, a move from 08:00
+  to 20:00 the next day as two days, and a move to the next date less than 12 hours later as none.
+- `workPackages()` keeps WBS nodes that share a name apart. Packages were grouped by name, so same-named nodes
+  were merged into one package with their counts combined.
+- `progress()` resolves percent complete the way earned value does: a Completed activity counts as 100%, a Not
+  Started one as 0%, `complete_pct_type` picks the measure, and the result is clamped to 0–100. It weighted
+  every activity by its raw physical percent.
+- `compareTo()` skips activities without a `task_code`, as the variance check does. They all fell onto one `''`
+  key, so only the last of them on each side was compared, or reported as added or deleted.
+- `XerParser` drops a leading UTF-8 byte order mark, which hid the `ERMHDR` line, and `parseFile()` raises no
+  PHP warning when a read fails.
+- `XerExporter` lists the columns of all of a table's rows in its `%F` line, in order of first appearance. It
+  used the first row's, so a column that `ScheduleUpdater::updateActivity()` added to any activity but the first
+  was lost.
+- CSV output follows RFC 4180: a double quote is doubled and a backslash is never an escape character. A
+  backslash before a quote no longer corrupts a value, and PHP 8.4 no longer reports a deprecation for every row.
+- `ScheduleUpdater::addActivity()` accepts the `task_id` `'0'`, and creates the `TASK` table, with the row's keys
+  as its columns, when the data has none. It refused `'0'`, did nothing without a `TASK` table, and gave an empty
+  `TASK` table a row without columns.
+- The facade's `@method` block lists every public manager method with its exact signature, and a test keeps it in
+  sync. `getData()`, `earnedValueReport()`, `scheduleVariance()`, `query()`, `updater()` and `exportXerToFile()`
+  were missing and `earnedValue()` lacked `$method`, so IDEs and static analysis rejected valid calls.
+- The manager's `@return` shapes match what the analyzers return, and the documentation examples run: the
+  schedule variance example called `getData()` on `ParsedXerData`, and the role-labels example passed `null` as
+  `$roleLabels`.
 
 ## [2.4.2] - 2026-10-28
 
@@ -229,7 +351,8 @@ across activities.
 - Architecture tests ensuring no `App\` namespace or Spatie Data leaks
 - Comprehensive documentation in `docs/` directory
 
-[Unreleased]: https://github.com/Badr1600/p6-analyzer/compare/v2.4.2...HEAD
+[Unreleased]: https://github.com/Badr1600/p6-analyzer/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/Badr1600/p6-analyzer/compare/v2.4.2...v3.0.0
 [2.4.2]: https://github.com/Badr1600/p6-analyzer/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/Badr1600/p6-analyzer/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/Badr1600/p6-analyzer/compare/v2.3.0...v2.4.0

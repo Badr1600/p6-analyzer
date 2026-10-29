@@ -143,7 +143,7 @@ Detailed documentation is available in the [docs/](docs/) directory:
 - [Modifying Schedules](docs/mutations.md)
 - [Exporting Data](docs/exporting.md)
 - [Facade & Manager API](docs/facade-api.md)
-- [Upgrading from 1.x to 2.x](docs/upgrading.md)
+- [Upgrading guide](docs/upgrading.md)
 
 ## Changelog
 

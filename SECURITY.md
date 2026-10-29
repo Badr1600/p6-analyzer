@@ -2,11 +2,12 @@
 
 ## Supported versions
 
-Security fixes are released for the latest 2.x version.
+Security fixes are released for the latest 3.x version.
 
 | Version | Supported |
 |---|---|
-| 2.x | Yes |
+| 3.x | Yes |
+| 2.x | No |
 | 1.x | No |
 
 ## Reporting a vulnerability
