@@ -233,7 +233,7 @@ test('scheduleVariance() takes the baseline schedule as $baselineData', function
 test('scheduleHealth() returns required health keys', function () {
     $result = loadedManager()->scheduleHealth('2024-01-15');
 
-    expect($result)->toHaveKeys(['total_activities', 'missing_resources', 'missing_logic', 'out_of_sequence', 'lags_count', 'leads_count'])
+    expect($result)->toHaveKeys(['total_activities', 'missing_resources', 'missing_logic', 'actual_start_after_data_date', 'lags_count', 'leads_count'])
         ->and($result['total_activities'])->toBeGreaterThan(0);
 });
 

@@ -194,7 +194,7 @@ class P6AnalyzerManager
     /**
      * Run schedule health check.
      *
-     * @return array{total_activities: int, missing_resources: int, missing_logic: int, out_of_sequence: int, lags_count: int, leads_count: int, details_limit: int, missing_resources_activities: list<array{id: string, task_code: ?string, name: ?string}>, missing_logic_activities: list<array{id: string, task_code: ?string, name: ?string}>, out_of_sequence_activities: list<array{id: string, task_code: ?string, name: ?string}>}
+     * @return array{total_activities: int, missing_resources: int, missing_logic: int, actual_start_after_data_date: int, lags_count: int, leads_count: int, details_limit: int, missing_resources_activities: list<array{id: string, task_code: ?string, name: ?string}>, missing_logic_activities: list<array{id: string, task_code: ?string, name: ?string}>, actual_start_after_data_date_activities: list<array{id: string, task_code: ?string, name: ?string}>}
      */
     public function scheduleHealth(?string $dataDate = null): array
     {

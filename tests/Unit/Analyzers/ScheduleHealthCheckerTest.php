@@ -28,7 +28,17 @@ test('empty data returns all zeros', function () {
         ->and($result['missing_logic'])->toBe(0)
         ->and($result['lags_count'])->toBe(0)
         ->and($result['leads_count'])->toBe(0)
-        ->and($result['out_of_sequence'])->toBe(0);
+        ->and($result['actual_start_after_data_date'])->toBe(0);
+});
+
+test('the result names its counts and drill-down lists', function () {
+    $result = (new ScheduleHealthChecker)->check(makeHealthData());
+
+    expect(array_keys($result))->toBe([
+        'total_activities', 'missing_resources', 'missing_logic', 'actual_start_after_data_date',
+        'lags_count', 'leads_count', 'details_limit',
+        'missing_resources_activities', 'missing_logic_activities', 'actual_start_after_data_date_activities',
+    ]);
 });
 
 // ---------------------------------------------------------------
@@ -196,35 +206,35 @@ test('zero lag increments neither lags nor leads', function () {
 });
 
 // ---------------------------------------------------------------
-// out_of_sequence
+// actual_start_after_data_date
 // ---------------------------------------------------------------
 
-test('activity with actual start after data date counted as out of sequence', function () {
+test('activity with actual start after data date is counted', function () {
     $data = makeHealthData(
         tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'act_start_date' => '2024-03-01 00:00:00']],
     );
 
     $result = (new ScheduleHealthChecker)->check($data, '2024-01-01');
 
-    expect($result['out_of_sequence'])->toBe(1);
+    expect($result['actual_start_after_data_date'])->toBe(1);
 });
 
-test('activity with actual start before data date is not out of sequence', function () {
+test('activity with actual start before data date is not counted', function () {
     $data = makeHealthData(
         tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'act_start_date' => '2023-06-01 00:00:00']],
     );
 
     $result = (new ScheduleHealthChecker)->check($data, '2024-01-01');
 
-    expect($result['out_of_sequence'])->toBe(0);
+    expect($result['actual_start_after_data_date'])->toBe(0);
 });
 
-test('no data date means out_of_sequence is always zero', function () {
+test('no data date means actual_start_after_data_date is always zero', function () {
     $data = makeHealthData(
         tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'act_start_date' => '2025-01-01 00:00:00']],
     );
 
-    expect((new ScheduleHealthChecker)->check($data, null)['out_of_sequence'])->toBe(0);
+    expect((new ScheduleHealthChecker)->check($data, null)['actual_start_after_data_date'])->toBe(0);
 });
 
 test('runs against real XER fixture without error', function () {
@@ -327,8 +337,8 @@ test('offending activities travel as drill-down lists alongside the counts', fun
         ->and($result['missing_logic_activities'])->toHaveCount(1)
         ->and($result['missing_logic_activities'][0]['task_code'])->toBe('A100')
         ->and($result['missing_resources_activities'][0]['task_code'])->toBe('A100')
-        ->and($result['out_of_sequence'])->toBe(1)
-        ->and($result['out_of_sequence_activities'][0]['task_code'])->toBe('A200')
+        ->and($result['actual_start_after_data_date'])->toBe(1)
+        ->and($result['actual_start_after_data_date_activities'][0]['task_code'])->toBe('A200')
         ->and($result['details_limit'])->toBe(200);
 });
 

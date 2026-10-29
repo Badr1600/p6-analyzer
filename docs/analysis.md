@@ -188,13 +188,14 @@ moved a few hours within the same day is a variance of 0 and not a slip, and a f
 
 ```php
 $result = $analyzer->scheduleHealth('2024-01-15');
-// ['total_activities', 'missing_resources', 'missing_logic', 'out_of_sequence',
+// ['total_activities', 'missing_resources', 'missing_logic', 'actual_start_after_data_date',
 //  'lags_count', 'leads_count', 'details_limit',
-//  'missing_resources_activities', 'missing_logic_activities', 'out_of_sequence_activities']
+//  'missing_resources_activities', 'missing_logic_activities', 'actual_start_after_data_date_activities']
 ```
 
 Each `*_activities` list names the activities behind the matching count and holds at most `details_limit` entries (200);
-the counts stay exact when a list is capped. `out_of_sequence` needs the data date.
+the counts stay exact when a list is capped. `actual_start_after_data_date` counts the activities whose actual start is
+after the data date, so it needs the data date and is 0 without one.
 
 ```php
 foreach ($result['missing_logic_activities'] as $activity) {

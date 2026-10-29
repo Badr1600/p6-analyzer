@@ -16,7 +16,7 @@ A standalone Laravel package for parsing, analyzing, and exporting **Primavera P
 - **Float Distribution** — Analyze total float spread across the schedule
 - **Relationship Analysis** — FS/SS/FF/SF type distribution and lag metrics
 - **Schedule Variance** — Compare two schedules to detect slipping activities
-- **Schedule Health Check** — Missing resources, missing logic, out-of-sequence detection
+- **Schedule Health Check** — Missing resources, missing logic, actual starts after the data date
 - **Resource Utilization** — Per-resource loading with over-allocation detection
 - **WBS Analysis** — Work breakdown structure metrics
 - **Lookahead Generation** — Filtered x-week lookahead schedules

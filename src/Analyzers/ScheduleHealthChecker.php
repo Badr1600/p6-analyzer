@@ -15,6 +15,9 @@ use TeckFuture\P6Analyzer\Support\MissingLogic;
  * that a start milestone needs only a successor and a finish milestone only
  * a predecessor.
  *
+ * `actual_start_after_data_date` counts the activities whose actual start lies
+ * after the data date. It needs a data date and is 0 without one.
+ *
  * Alongside each count, the offending activities travel as drill-down lists
  * (id, task_code, name), capped at `details_limit` rows per check — the
  * counts remain authoritative when a list is capped.
@@ -36,13 +39,13 @@ class ScheduleHealthChecker
             'total_activities' => $activities->count(),
             'missing_resources' => 0,
             'missing_logic' => 0,
-            'out_of_sequence' => 0,
+            'actual_start_after_data_date' => 0,
             'lags_count' => 0,
             'leads_count' => 0,
             'details_limit' => self::DETAILS_LIMIT,
             'missing_resources_activities' => [],
             'missing_logic_activities' => [],
-            'out_of_sequence_activities' => [],
+            'actual_start_after_data_date_activities' => [],
         ];
 
         foreach ($relationships as $rel) {
@@ -76,9 +79,9 @@ class ScheduleHealthChecker
             }
 
             if ($dataDateObj && $activity->act_start_date && $activity->act_start_date->isAfter($dataDateObj)) {
-                $health['out_of_sequence']++;
-                if (count($health['out_of_sequence_activities']) < self::DETAILS_LIMIT) {
-                    $health['out_of_sequence_activities'][] = $describe($activity);
+                $health['actual_start_after_data_date']++;
+                if (count($health['actual_start_after_data_date_activities']) < self::DETAILS_LIMIT) {
+                    $health['actual_start_after_data_date_activities'][] = $describe($activity);
                 }
             }
         }
