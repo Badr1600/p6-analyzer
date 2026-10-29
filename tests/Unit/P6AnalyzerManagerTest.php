@@ -1,5 +1,6 @@
 <?php
 
+use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
 use TeckFuture\P6Analyzer\IO\XerParser;
 use TeckFuture\P6Analyzer\P6AnalyzerManager;
 
@@ -155,6 +156,49 @@ test('dcma14Point() applies the data date when scoring', function () {
 
     // The fixture scores 58.38 without a data date; at 2024-01-15 its invalid dates cost another 10 points
     expect($result['overall_score'])->toBe(48.38);
+});
+
+test('dcma14Point() assesses the logic, lead, lag and relationship-type points', function () {
+    $points = collect(loadedManager()->dcma14Point('2024-01-15')['points'])->keyBy('key');
+
+    // The fixture has 555 relationships: 18 with negative lag, 29 with positive lag, 455 Finish-to-Start
+    expect($points['missing_logic']['assessable'])->toBeTrue()
+        ->and($points['missing_logic']['count'])->toBe(6)
+        ->and($points['missing_logic']['percentage'])->toBe(1.45)
+        ->and($points['missing_logic']['passed'])->toBeTrue()
+        ->and($points['leads']['count'])->toBe(18)
+        ->and($points['leads']['passed'])->toBeFalse()
+        ->and($points['lags']['count'])->toBe(29)
+        ->and($points['lags']['percentage'])->toBe(5.23)
+        ->and($points['lags']['passed'])->toBeFalse()
+        ->and($points['relationship_types']['count'])->toBe(455)
+        ->and($points['relationship_types']['percentage'])->toBe(81.98)
+        ->and($points['relationship_types']['passed'])->toBeFalse();
+});
+
+test('scheduleHealth() and dcma14Point() report the same missing logic', function () {
+    $manager = loadedManager();
+    $logic = collect($manager->dcma14Point()['points'])->firstWhere('key', 'missing_logic');
+
+    expect($manager->scheduleHealth()['missing_logic'])->toBe(6)
+        ->and($logic['count'])->toBe(6);
+});
+
+test('dcma14Point() on a schedule without relationships assesses against zero links', function () {
+    $data = new ParsedXerData(header: '', tables: collect([
+        'TASK' => collect([
+            ['task_id' => '1', 'task_code' => 'A1', 'status_code' => 'TK_NotStart', 'task_type' => 'TT_Task'],
+            ['task_id' => '2', 'task_code' => 'A2', 'status_code' => 'TK_Complete', 'task_type' => 'TT_Task'],
+        ]),
+    ]));
+
+    $points = collect((new P6AnalyzerManager)->fromData($data)->dcma14Point()['points'])->keyBy('key');
+
+    // The open activity has no links; the completed one is exempt; there are no relationships to type
+    expect($points['missing_logic']['assessable'])->toBeTrue()
+        ->and($points['missing_logic']['count'])->toBe(1)
+        ->and($points['relationship_types']['assessable'])->toBeFalse()
+        ->and($points['relationship_types']['reason'])->toBe('No relationships in scope.');
 });
 
 test('earnedValue() returns the documented result keys', function () {
