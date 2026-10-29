@@ -36,6 +36,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Hours Per Day
+    |--------------------------------------------------------------------------
+    |
+    | Working hours per day, used to convert hour-based float and duration
+    | values to days: the float distribution buckets and the day counts in
+    | the DCMA threshold labels. Default is 8 hours.
+    |
+    */
+    'hours_per_day' => 8,
+
+    /*
+    |--------------------------------------------------------------------------
     | DCMA Penalty Weights
     |--------------------------------------------------------------------------
     |
@@ -60,6 +72,18 @@ return [
     |
     */
     'resource_overallocation_daily_limit' => 8,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Minimum Slip Days
+    |--------------------------------------------------------------------------
+    |
+    | Schedule variance counts an activity as slipping only when its finish is
+    | later than the baseline finish by more than this many days. Default is
+    | 0 days, so any later finish counts.
+    |
+    */
+    'min_slip_days' => 0,
 
     /*
     |--------------------------------------------------------------------------

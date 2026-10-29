@@ -19,6 +19,11 @@ All configuration values have sensible defaults and are optional to publish.
 - **Default:** `352` (44 business days × 8h)
 - Activities exceeding this duration are flagged in the DCMA check.
 
+### `hours_per_day`
+- **Type:** `float` (hours)
+- **Default:** `8`
+- Working hours per day, used to convert hour-based float and duration values to days: the buckets of the float distribution (`floatAnalysis()`) and the day counts in the DCMA point threshold labels. `high_float_threshold` and `high_duration_threshold` stay in hours. A value of zero or below, or one that is not a number, is ignored and `8` is used.
+
 ### `dcma_penalty_weights`
 - **Type:** `array`
 - **Default:**
@@ -36,6 +41,11 @@ All configuration values have sensible defaults and are optional to publish.
 - **Type:** `float` (hours)
 - **Default:** `8`
 - A resource whose assignments add up to more than this many hours on one day is flagged as over-allocated for that day.
+
+### `min_slip_days`
+- **Type:** `float` (days)
+- **Default:** `0`
+- Schedule variance counts an activity as slipping only when its finish is later than the baseline finish by more than this many days. With the default, any later finish counts.
 
 ### `evm.default_method`
 - **Type:** `string` — `'cost'` | `'labor_units'` | `'duration'` | `'auto'`
