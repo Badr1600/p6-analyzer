@@ -105,3 +105,63 @@ test('handles empty datasets', function () {
 
     expect($result['total_changes'])->toBe(0);
 });
+
+// ---------------------------------------------------------------
+// Activities without a task_code have nothing to be matched on
+// ---------------------------------------------------------------
+
+function makeSnapshotData(array $tasks): ParsedXerData
+{
+    return new ParsedXerData(header: '', tables: collect(['TASK' => collect($tasks)]));
+}
+
+test('activities without a task_code are skipped, not collapsed onto one blank key', function () {
+    $baseline = makeSnapshotData([
+        ['task_id' => '1', 'task_code' => 'A100', 'task_name' => 'Kept', 'status_code' => 'TK_NotStart'],
+        ['task_id' => '2', 'task_code' => '', 'task_name' => 'Blank one', 'status_code' => 'TK_NotStart'],
+        ['task_id' => '3', 'task_code' => '', 'task_name' => 'Blank two', 'status_code' => 'TK_Active'],
+    ]);
+    $current = makeSnapshotData([
+        ['task_id' => '1', 'task_code' => 'A100', 'task_name' => 'Kept', 'status_code' => 'TK_Active'],
+        ['task_id' => '2', 'task_code' => '', 'task_name' => 'Blank one', 'status_code' => 'TK_Complete'],
+        ['task_id' => '4', 'task_code' => '', 'task_name' => 'Blank three', 'status_code' => 'TK_NotStart'],
+    ]);
+
+    $result = (new SnapshotComparer)->compare($current, $baseline);
+
+    expect(array_keys($result['modified_activities']))->toBe(['A100'])
+        ->and($result['added_activities'])->toBeEmpty()
+        ->and($result['deleted_activities'])->toBeEmpty()
+        ->and($result['total_changes'])->toBe(1);
+});
+
+test('an activity without a task_code is not reported as added', function () {
+    $baseline = makeSnapshotData([
+        ['task_id' => '1', 'task_code' => 'A100', 'task_name' => 'Existing'],
+    ]);
+    $current = makeSnapshotData([
+        ['task_id' => '1', 'task_code' => 'A100', 'task_name' => 'Existing'],
+        ['task_id' => '2', 'task_code' => '', 'task_name' => 'No code'],
+        ['task_id' => '3', 'task_name' => 'No task_code column at all'],
+    ]);
+
+    $result = (new SnapshotComparer)->compare($current, $baseline);
+
+    expect($result['added_activities'])->toBeEmpty()
+        ->and($result['total_changes'])->toBe(0);
+});
+
+test('an activity without a task_code is not reported as deleted', function () {
+    $baseline = makeSnapshotData([
+        ['task_id' => '1', 'task_code' => 'A100', 'task_name' => 'Existing'],
+        ['task_id' => '2', 'task_code' => '', 'task_name' => 'No code'],
+    ]);
+    $current = makeSnapshotData([
+        ['task_id' => '1', 'task_code' => 'A100', 'task_name' => 'Existing'],
+    ]);
+
+    $result = (new SnapshotComparer)->compare($current, $baseline);
+
+    expect($result['deleted_activities'])->toBeEmpty()
+        ->and($result['total_changes'])->toBe(0);
+});
