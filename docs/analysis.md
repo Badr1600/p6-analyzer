@@ -67,15 +67,15 @@ counts of points 6 and 8 follow `hours_per_day`). A point that cannot be assesse
 | 13 | `cpli` | never: needs an approved baseline |
 | 14 | `bei` | never: needs an approved baseline |
 
-Points 1 to 4 need the relationships as the checker's third argument. `P6AnalyzerManager::dcma14Point()` passes only
-the activities and the data date, so through the manager those four points report `assessable => false`. To assess
-them, call the checker directly:
+`dcma14Point()` passes the schedule's relationships to the checker, so points 1 to 4 are assessable through the manager
+and the facade. (If you call `DCMA14PointChecker::calculate()` yourself, pass the relationships as its third argument.)
 
-```php
-use TeckFuture\P6Analyzer\Analyzers\DCMA14PointChecker;
-
-$result = (new DCMA14PointChecker)->calculate($data->getActivities(), '2024-01-15', $data->getRelationships());
-```
+Point 1 (`missing_logic`) counts the activities that are not complete and are missing a predecessor or a successor. WBS
+summary activities (`TT_WBS`) are never examined. A start milestone (`TT_Mile`) needs only a successor and a finish
+milestone (`TT_FinMile`) only a predecessor. `percentage` is that count as a share of the activities the rule examines:
+the incomplete activities except WBS summaries, milestones included. The `missing_logic` count of `scheduleHealth()`
+follows the same rule. A schedule with no relationships at all is assessed against zero links, so every activity the
+rule examines is missing logic.
 
 ## Earned Value (`EarnedValueCalculator`)
 
@@ -185,6 +185,10 @@ foreach ($result['missing_logic_activities'] as $activity) {
     // ['id', 'task_code', 'name']
 }
 ```
+
+`missing_logic` counts the activities that are not complete and are missing a predecessor or a successor. It is the
+same rule as DCMA point 1, so the two counts always agree. WBS summary activities (`TT_WBS`) are never examined, and a
+start milestone (`TT_Mile`) needs only a successor while a finish milestone (`TT_FinMile`) needs only a predecessor.
 
 ## Resource Utilization (`ResourceUtilizationAnalyzer`)
 

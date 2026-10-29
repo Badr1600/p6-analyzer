@@ -35,7 +35,7 @@ class EarnedValueCalculator
      * Summary/milestone task types excluded from EVM sums: WBS summary bars
      * duplicate their children's values; milestones carry no work.
      */
-    private const EXCLUDED_TASK_TYPES = ['TT_WBS', 'TT_Mile', 'TT_FinMile'];
+    private const EXCLUDED_TASK_TYPES = [ActivityData::WBS_SUMMARY_TASK_TYPE, ...ActivityData::MILESTONE_TASK_TYPES];
 
     /** @param array<string, mixed> $options Per-instance overrides of config('p6-analyzer.evm.*'). */
     public function __construct(private readonly array $options = []) {}

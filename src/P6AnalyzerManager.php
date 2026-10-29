@@ -119,7 +119,7 @@ class P6AnalyzerManager
     {
         $this->ensureLoaded();
 
-        return (new DCMA14PointChecker)->calculate($this->data->getActivities(), $dataDate);
+        return (new DCMA14PointChecker)->calculate($this->data->getActivities(), $dataDate, $this->data->getRelationships());
     }
 
     /**

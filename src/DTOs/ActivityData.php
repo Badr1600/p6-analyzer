@@ -22,6 +22,28 @@ use Carbon\Carbon;
 final class ActivityData
 {
     /**
+     * Task type P6 writes for a WBS summary activity (`TASK.task_type`).
+     */
+    public const WBS_SUMMARY_TASK_TYPE = 'TT_WBS';
+
+    /**
+     * Task type P6 writes for a start milestone (`TASK.task_type`).
+     */
+    public const START_MILESTONE_TASK_TYPE = 'TT_Mile';
+
+    /**
+     * Task type P6 writes for a finish milestone (`TASK.task_type`).
+     */
+    public const FINISH_MILESTONE_TASK_TYPE = 'TT_FinMile';
+
+    /**
+     * Both milestone task types.
+     *
+     * @var array<int, string>
+     */
+    public const MILESTONE_TASK_TYPES = [self::START_MILESTONE_TASK_TYPE, self::FINISH_MILESTONE_TASK_TYPE];
+
+    /**
      * P6 status code mapping from raw codes to normalized strings.
      *
      * @var array<string, string>

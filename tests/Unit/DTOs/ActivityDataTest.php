@@ -542,3 +542,23 @@ test('float casting for numeric strings', function () {
 
     expect($activity->target_drtn_hr_cnt)->toBe(40.5)->toBeFloat();
 });
+
+// ---------------------------------------------------------------
+// P6 task types
+// ---------------------------------------------------------------
+
+test('task_type is read from the TASK row and an empty value is null', function () {
+    $milestone = ActivityData::fromModelOrArray(['task_id' => '1', 'task_type' => 'TT_Mile']);
+    $blank = ActivityData::fromModelOrArray(['task_id' => '2', 'task_type' => '']);
+
+    expect($milestone->task_type)->toBe('TT_Mile')
+        ->and($blank->task_type)->toBeNull();
+});
+
+test('it names the task types P6 writes for milestones and WBS summaries', function () {
+    // P6 has a start milestone (TT_Mile) and a finish milestone (TT_FinMile); there is no TT_StartMile
+    expect(ActivityData::START_MILESTONE_TASK_TYPE)->toBe('TT_Mile')
+        ->and(ActivityData::FINISH_MILESTONE_TASK_TYPE)->toBe('TT_FinMile')
+        ->and(ActivityData::MILESTONE_TASK_TYPES)->toBe(['TT_Mile', 'TT_FinMile'])
+        ->and(ActivityData::WBS_SUMMARY_TASK_TYPE)->toBe('TT_WBS');
+});
