@@ -5,9 +5,17 @@ namespace TeckFuture\P6Analyzer\Analyzers;
 use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
+use TeckFuture\P6Analyzer\Support\PercentComplete;
 
 /**
  * Generates a high-level progress summary of the schedule.
+ *
+ * overall_percent_complete_by_duration weights each activity's percent complete
+ * by its target duration. The percent is resolved by PercentComplete, as in
+ * EarnedValueCalculator: a Completed activity counts as 100% and a Not Started
+ * one as 0%, whatever stale percent fields they carry, and otherwise P6's
+ * complete_pct_type (CP_Phys / CP_Drtn / CP_Units) picks the measure, clamped
+ * to 0–100. Unlike EarnedValueCalculator, neither rule can be switched off here.
  */
 class ProgressSummarizer
 {
@@ -44,8 +52,7 @@ class ProgressSummarizer
             $duration = (float) ($activity->target_drtn_hr_cnt ?? 0);
             $totalDuration += $duration;
 
-            $pctComplete = (float) ($activity->phys_comp_pct ?? ($activity->complete_pct ?? 0));
-            $completedDuration += $duration * ($pctComplete / 100);
+            $completedDuration += $duration * (PercentComplete::resolve($activity) / 100);
         }
 
         $overallPctComplete = $totalDuration > 0 ? round(($completedDuration / $totalDuration) * 100, 2) : 0;
