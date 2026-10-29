@@ -242,7 +242,7 @@ class P6AnalyzerManager
     /**
      * Summarize work packages.
      *
-     * @return array<int, array{name: string, activity_count: int, total_duration_hr: float, total_cost: float, completed_activities: int, percent_complete_by_count: float}>
+     * @return array<int, array{wbs_id: string, name: string, activity_count: int, total_duration_hr: float, total_cost: float, completed_activities: int, percent_complete_by_count: float}>
      */
     public function workPackages(): array
     {

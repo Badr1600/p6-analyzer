@@ -65,9 +65,9 @@ All configuration values have sensible defaults and are optional to publish.
 ### `evm.respect_complete_pct_type`
 - **Type:** `bool`
 - **Default:** `true`
-- Honor each activity's P6 `complete_pct_type` (`CP_Phys` / `CP_Drtn` / `CP_Units`) when selecting the percent complete that earns value.
+- Honor each activity's P6 `complete_pct_type` (`CP_Phys` / `CP_Drtn` / `CP_Units`) when selecting the percent complete that earns value. This applies to the earned value calculation only: `progress()` always honors the type.
 
 ### `evm.status_overrides_percent`
 - **Type:** `bool`
 - **Default:** `true`
-- Completed activities earn 100% and Not Started activities earn 0%, regardless of stale percent fields.
+- Completed activities earn 100% and Not Started activities earn 0%, regardless of stale percent fields. This applies to the earned value calculation only: `progress()` always applies the override.

@@ -157,8 +157,8 @@ the number of current activities with no match in the baseline (`current_activit
 activity slips when its finish is later than its baseline finish by more than `min_slip_days` days (default 0).
 `average_variance_days` and `max_variance_days` cover the slipping activities only.
 
-`master_*` keys hold the baseline dates and `workbench_*` keys the current ones. The variances are in days, positive
-when the current date is later:
+`master_*` keys hold the baseline dates and `workbench_*` keys the current ones. The variances are whole calendar days,
+positive when the current date is later and negative when it is earlier:
 
 ```php
 foreach ($result['slipping_activities'] as $activity) {
@@ -167,6 +167,16 @@ foreach ($result['slipping_activities'] as $activity) {
     //  'master_finish', 'workbench_finish', 'variance_days']
 }
 ```
+
+Only the dates are compared, never the time of day (for `start_variance_days` as well as `variance_days`). A finish
+moved a few hours within the same day is a variance of 0 and not a slip, and a finish on the next date is a variance of
+1 however many hours later it falls:
+
+| Baseline finish | Current finish | `variance_days` |
+|---|---|---|
+| 2024-06-01 08:00 | 2024-06-01 20:00 | 0 (not slipping) |
+| 2024-06-01 20:00 | 2024-06-02 06:00 | 1 |
+| 2024-06-01 08:00 | 2024-06-02 20:00 | 1 |
 
 ## Schedule Health (`ScheduleHealthChecker`)
 
@@ -248,9 +258,27 @@ $result = $analyzer->progress();
 // ['total_activities', 'status_counts', 'status_percentages', 'overall_percent_complete_by_duration']
 ```
 
+`overall_percent_complete_by_duration` is the percent complete of the activities weighted by their target duration
+(`target_drtn_hr_cnt`). Each activity's percent complete is resolved the way the earned value calculation resolves it:
+
+1. A Completed activity counts as 100% and a Not Started one as 0%, whatever its percent fields say.
+2. Otherwise the activity's `complete_pct_type` picks the measure: `CP_Drtn` is duration progress,
+   `(target − remaining) / target`, and `CP_Units` is unit progress, `actual / (actual + remaining)`. When the fields
+   that measure needs are missing, or the type is `CP_Phys` or unknown, step 3 applies.
+3. The physical percent complete (`phys_complete_pct`), then the activity's `complete_pct`, then 0.
+
+The result is limited to 0–100. These rules are always applied: `progress()` does not read
+`evm.respect_complete_pct_type` or `evm.status_overrides_percent`, which only affect `earnedValue()`.
+
 ## Work Packages (`WorkPackageSummarizer`)
 
 ```php
 $result = $analyzer->workPackages();
-// Array of ['name', 'activity_count', 'total_duration_hr', 'total_cost', 'completed_activities', 'percent_complete_by_count']
+// Array of ['wbs_id', 'name', 'activity_count', 'total_duration_hr', 'total_cost', 'completed_activities', 'percent_complete_by_count']
 ```
+
+There is one package for each WBS node that holds activities, identified by `wbs_id` (the `PROJWBS` id, which joins a
+package back to its WBS row). `name` is the node's `wbs_name`, or the `wbs_id` when the node is not in the `PROJWBS`
+table or has no name. It is only a label: two nodes with the same name stay separate packages, each with its own
+counts. Activities with no `wbs_id` are grouped in one package whose `wbs_id` and `name` are both `'unassigned'`.
+`percent_complete_by_count` is the share of the package's activities that are Completed.
