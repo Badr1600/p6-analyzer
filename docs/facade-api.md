@@ -17,21 +17,21 @@ The central class for all operations. Can be used standalone (without Laravel) o
 
 | Method | Returns | Analyzer |
 |---|---|---|
-| `criticalPath(?float $threshold)` | `array` | `CriticalPathCalculator` |
+| `criticalPath(?float $threshold = null)` | `array` | `CriticalPathCalculator` |
 | `floatAnalysis()` | `array` | `FloatAnalyzer` |
-| `dcma14Point(?string $dataDate)` | `array` | `DCMA14PointChecker` |
-| `earnedValue(?string $dataDate, EvmMethod|string|null $method)` | `array` | `EarnedValueCalculator` |
-| `earnedValueReport(?string $dataDate)` | `array` | `EarnedValueCalculator` |
+| `dcma14Point(?string $dataDate = null)` | `array` | `DCMA14PointChecker` |
+| `earnedValue(?string $dataDate = null, EvmMethod\|string\|null $method = null)` | `array` | `EarnedValueCalculator` |
+| `earnedValueReport(?string $dataDate = null)` | `array` | `EarnedValueCalculator` |
 | `relationshipAnalysis()` | `array` | `RelationshipAnalyzer` |
-| `scheduleVariance(ParsedXerData $master)` | `array` | `ScheduleVarianceCalculator` |
-| `scheduleHealth(?string $dataDate)` | `array` | `ScheduleHealthChecker` |
-| `resourceUtilization(string $period, ?float $dailyLimit, ?int $weekStartsOn, array $roleLabels)` | `array` | `ResourceUtilizationAnalyzer` |
+| `scheduleVariance(ParsedXerData $masterData)` | `array` | `ScheduleVarianceCalculator` |
+| `scheduleHealth(?string $dataDate = null)` | `array` | `ScheduleHealthChecker` |
+| `resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null, array $roleLabels = [])` | `array` | `ResourceUtilizationAnalyzer` |
 | `wbsAnalysis()` | `array` | `WbsAnalyzer` |
-| `lookahead(string $dataDate, int $weeks)` | `array` | `LookaheadGenerator` |
+| `lookahead(string $dataDate, int $weeks = 3)` | `array` | `LookaheadGenerator` |
 | `workPackages()` | `array` | `WorkPackageSummarizer` |
 | `progress()` | `array` | `ProgressSummarizer` |
-| `report(?string $dataDate)` | `array` | `ReportGenerator` |
-| `compareTo(ParsedXerData $baseline)` | `array` | `SnapshotComparer` |
+| `report(?string $dataDate = null)` | `array` | `ReportGenerator` |
+| `compareTo(ParsedXerData $baselineData)` | `array` | `SnapshotComparer` |
 
 ### IO Methods
 
@@ -40,7 +40,7 @@ The central class for all operations. Can be used standalone (without Laravel) o
 | `query()` | `ScheduleQueryEngine` | Get query engine |
 | `updater()` | `ScheduleUpdater` | Get updater |
 | `exportXer()` | `string` | Export to XER string |
-| `exportXerToFile(string $path)` | `bool` | Export to XER file |
+| `exportXerToFile(string $filePath)` | `bool` | Export to XER file |
 | `exportCsv(string $tableName)` | `string` | Export table to CSV |
 
 ## P6Analyzer Facade
