@@ -2,7 +2,10 @@
 
 ## SnapshotComparer
 
-Compares two parsed XER schedules to identify changes.
+Compares two parsed XER schedules to identify changes. Activities are matched by `task_code`, the stable business
+identifier that survives re-imports. An activity with an empty `task_code` has nothing to be matched on, so it is
+skipped in both schedules: it is never reported as added, deleted or modified, and it does not count towards
+`total_changes`.
 
 ```php
 $result = $analyzer->compareTo($baselineData);

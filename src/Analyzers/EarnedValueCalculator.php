@@ -8,6 +8,7 @@ use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\ActivityEvmInput;
 use TeckFuture\P6Analyzer\Enums\EvmMethod;
 use TeckFuture\P6Analyzer\Support\Config;
+use TeckFuture\P6Analyzer\Support\PercentComplete;
 
 /**
  * Calculates Earned Value Management (EVM) metrics.
@@ -254,52 +255,11 @@ class EarnedValueCalculator
      */
     private function resolvePercentComplete(ActivityData $activity): float
     {
-        if ($this->option('status_overrides_percent', true)) {
-            if ($activity->status_code === 'Completed') {
-                return 100.0;
-            }
-            if ($activity->status_code === 'Not Started') {
-                return 0.0;
-            }
-        }
-
-        if ($this->option('respect_complete_pct_type', true)) {
-            $typed = $this->percentFromType($activity);
-            if ($typed !== null) {
-                return $this->clampPercent($typed);
-            }
-        }
-
-        return $this->clampPercent((float) ($activity->phys_comp_pct ?? ($activity->complete_pct ?? 0)));
-    }
-
-    /**
-     * Percent complete per P6's declared type; null falls back to the
-     * physical → activity chain (covers CP_Phys and absent/unknown types).
-     */
-    private function percentFromType(ActivityData $activity): ?float
-    {
-        if ($activity->complete_pct_type === 'CP_Drtn') {
-            $target = (float) ($activity->target_drtn_hr_cnt ?? 0);
-            if ($target > 0 && $activity->remain_drtn_hr_cnt !== null) {
-                return (($target - $activity->remain_drtn_hr_cnt) / $target) * 100;
-            }
-        }
-
-        if ($activity->complete_pct_type === 'CP_Units') {
-            $actual = (float) ($activity->act_work_qty ?? 0);
-            $atCompletion = $actual + (float) ($activity->remain_work_qty ?? 0);
-            if ($atCompletion > 0) {
-                return ($actual / $atCompletion) * 100;
-            }
-        }
-
-        return null;
-    }
-
-    private function clampPercent(float $pct): float
-    {
-        return min(100.0, max(0.0, $pct));
+        return PercentComplete::resolve(
+            $activity,
+            statusOverrides: (bool) $this->option('status_overrides_percent', true),
+            respectType: (bool) $this->option('respect_complete_pct_type', true),
+        );
     }
 
     /**

@@ -258,6 +258,92 @@ test('phys_comp_pct takes precedence over complete_pct when both present', funct
 });
 
 // ---------------------------------------------------------------
+// Percent complete honours the status and P6's complete_pct_type
+// ---------------------------------------------------------------
+
+test('a Completed activity counts as 100% complete even with a stale percent', function () {
+    // 40hr, Completed, but the physical percent was never brought up to 100
+    $result = (new ProgressSummarizer)->summarize(makeProgressData(tasks: [
+        makeProgressTask('1', 'TK_Complete', duration: 40.0, pct: 50.0),
+    ]));
+
+    expect($result['overall_percent_complete_by_duration'])->toBe(100.0);
+});
+
+test('a Not Started activity counts as 0% complete even with a stray percent', function () {
+    // Earned = 0 (Not Started, stray 30%) + 40 (Completed) of 80hr
+    $result = (new ProgressSummarizer)->summarize(makeProgressData(tasks: [
+        makeProgressTask('1', 'TK_NotStart', duration: 40.0, pct: 30.0),
+        makeProgressTask('2', 'TK_Complete', duration: 40.0, pct: 100.0),
+    ]));
+
+    expect($result['overall_percent_complete_by_duration'])->toBe(50.0);
+});
+
+test('CP_Drtn activities are measured by duration progress, not the physical percent', function () {
+    // 40hr target, 24hr remaining: 40% duration-complete while the physical percent says 0
+    $result = (new ProgressSummarizer)->summarize(makeProgressData(tasks: [
+        array_merge(makeProgressTask('1', 'TK_Active', duration: 40.0, pct: 0.0), [
+            'complete_pct_type' => 'CP_Drtn',
+            'remain_drtn_hr_cnt' => '24',
+        ]),
+    ]));
+
+    expect($result['overall_percent_complete_by_duration'])->toBe(40.0);
+});
+
+test('CP_Units activities are measured by unit progress, not the physical percent', function () {
+    // 30 units actual + 70 remaining: 30% units-complete while the physical percent says 0
+    $result = (new ProgressSummarizer)->summarize(makeProgressData(tasks: [
+        array_merge(makeProgressTask('1', 'TK_Active', duration: 40.0, pct: 0.0), [
+            'complete_pct_type' => 'CP_Units',
+            'act_work_qty' => '30',
+            'remain_work_qty' => '70',
+        ]),
+    ]));
+
+    expect($result['overall_percent_complete_by_duration'])->toBe(30.0);
+});
+
+test('CP_Phys activities keep using the physical percent', function () {
+    $result = (new ProgressSummarizer)->summarize(makeProgressData(tasks: [
+        array_merge(makeProgressTask('1', 'TK_Active', duration: 40.0, pct: 25.0), [
+            'complete_pct_type' => 'CP_Phys',
+            'remain_drtn_hr_cnt' => '24', // would read 40% if the type were CP_Drtn
+        ]),
+    ]));
+
+    expect($result['overall_percent_complete_by_duration'])->toBe(25.0);
+});
+
+test('percent complete is clamped to 100', function () {
+    $result = (new ProgressSummarizer)->summarize(makeProgressData(tasks: [
+        makeProgressTask('1', 'TK_Active', duration: 40.0, pct: 250.0),
+    ]));
+
+    expect($result['overall_percent_complete_by_duration'])->toBe(100.0);
+});
+
+test('each activity is resolved on its own status and type before weighting by duration', function () {
+    // 10hr Completed (stale 0%)     -> 10 earned
+    // 20hr CP_Drtn, 5hr remaining   -> 15 earned (75%)
+    // 30hr Not Started (stray 50%)  ->  0 earned
+    // 40hr In Progress, physical 25 -> 10 earned
+    // 35 earned of 100hr
+    $result = (new ProgressSummarizer)->summarize(makeProgressData(tasks: [
+        makeProgressTask('1', 'TK_Complete', duration: 10.0, pct: 0.0),
+        array_merge(makeProgressTask('2', 'TK_Active', duration: 20.0, pct: 0.0), [
+            'complete_pct_type' => 'CP_Drtn',
+            'remain_drtn_hr_cnt' => '5',
+        ]),
+        makeProgressTask('3', 'TK_NotStart', duration: 30.0, pct: 50.0),
+        makeProgressTask('4', 'TK_Active', duration: 40.0, pct: 25.0),
+    ]));
+
+    expect($result['overall_percent_complete_by_duration'])->toBe(35.0);
+});
+
+// ---------------------------------------------------------------
 // Smallest positive total duration
 // ---------------------------------------------------------------
 

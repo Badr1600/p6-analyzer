@@ -103,8 +103,13 @@ class ScheduleVarianceCalculator
     }
 
     /**
-     * Whole days from $from to $to, negative when $to is earlier. Explicit
-     * sign handling keeps the result stable across Carbon major versions.
+     * Whole calendar days from $from to $to, negative when $to is earlier.
+     *
+     * Only the dates are compared, never the times of day: Carbon 3's
+     * diffInDays() is fractional, so rounding it counted a same-day shift of
+     * 12 hours as a day and missed a move to the next date that was under 24
+     * hours. Explicit sign handling keeps the result stable across Carbon
+     * major versions.
      */
     private function signedDayDiff(?Carbon $from, ?Carbon $to): ?int
     {
@@ -112,8 +117,12 @@ class ScheduleVarianceCalculator
             return null;
         }
 
-        $days = (int) round(abs($from->diffInDays($to)));
+        // copy(): startOfDay() mutates, and these are the activities' own dates.
+        $fromDay = $from->copy()->startOfDay();
+        $toDay = $to->copy()->startOfDay();
 
-        return $to->lessThan($from) ? -$days : $days;
+        $days = (int) round(abs($fromDay->diffInDays($toDay)));
+
+        return $toDay->lessThan($fromDay) ? -$days : $days;
     }
 }

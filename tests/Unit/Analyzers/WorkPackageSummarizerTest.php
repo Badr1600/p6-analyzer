@@ -166,12 +166,89 @@ test('separate packages are created per WBS node', function () {
     expect((new WorkPackageSummarizer)->summarize($data))->toHaveCount(2);
 });
 
+test('WBS nodes that share a name stay separate packages', function () {
+    $data = makeWpData(
+        tasks: [
+            makeTask('1', 'W1', 'TK_Complete', duration: 40.0),
+            makeTask('2', 'W1', 'TK_Active', duration: 40.0),
+            makeTask('3', 'W2', 'TK_Active', duration: 8.0),
+        ],
+        wbs: [
+            ['wbs_id' => 'W1', 'wbs_name' => 'Phase 1'],
+            ['wbs_id' => 'W2', 'wbs_name' => 'Phase 1'], // same name, different node
+        ],
+    );
+
+    $result = (new WorkPackageSummarizer)->summarize($data);
+
+    expect($result)->toHaveCount(2)
+        ->and($result[0]['name'])->toBe('Phase 1')
+        ->and($result[0]['activity_count'])->toBe(2)
+        ->and($result[0]['completed_activities'])->toBe(1)
+        ->and($result[0]['total_duration_hr'])->toBe(80.0)
+        ->and($result[0]['percent_complete_by_count'])->toBe(50.0)
+        ->and($result[1]['name'])->toBe('Phase 1')
+        ->and($result[1]['activity_count'])->toBe(1)
+        ->and($result[1]['completed_activities'])->toBe(0)
+        ->and($result[1]['total_duration_hr'])->toBe(8.0)
+        ->and($result[1]['percent_complete_by_count'])->toBe(0.0);
+});
+
+// ---------------------------------------------------------------
+// wbs_id identifies the package
+// ---------------------------------------------------------------
+
+test('each package carries the wbs_id of its WBS node', function () {
+    $data = makeWpData(
+        tasks: [makeTask('1', 'W1'), makeTask('2', 'W2')],
+        wbs: [
+            ['wbs_id' => 'W1', 'wbs_name' => 'Phase 1'],
+            ['wbs_id' => 'W2', 'wbs_name' => 'Phase 2'],
+        ],
+    );
+
+    $result = (new WorkPackageSummarizer)->summarize($data);
+
+    expect(array_column($result, 'wbs_id'))->toBe(['W1', 'W2'])
+        ->and(array_column($result, 'name'))->toBe(['Phase 1', 'Phase 2']);
+});
+
+test('wbs_id is the id itself for a node missing from the PROJWBS table', function () {
+    $data = makeWpData(tasks: [makeTask('1', 'ORPHAN')]);
+
+    $result = (new WorkPackageSummarizer)->summarize($data);
+
+    expect($result[0]['wbs_id'])->toBe('ORPHAN')
+        ->and($result[0]['name'])->toBe('ORPHAN');
+});
+
+test('wbs_id is unassigned for tasks with no wbs_id', function () {
+    $data = makeWpData(tasks: [
+        ['task_id' => '1', 'status_code' => 'TK_Active', 'target_drtn_hr_cnt' => '40'],
+    ]);
+
+    $result = (new WorkPackageSummarizer)->summarize($data);
+
+    expect($result[0]['wbs_id'])->toBe('unassigned')
+        ->and($result[0]['name'])->toBe('unassigned');
+});
+
 test('runs against real XER fixture without error', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new WorkPackageSummarizer)->summarize($data);
 
     expect($result)->not->toBeEmpty()
-        ->and($result[0])->toHaveKeys(['name', 'activity_count', 'total_duration_hr', 'total_cost', 'completed_activities', 'percent_complete_by_count']);
+        ->and($result[0])->toHaveKeys(['wbs_id', 'name', 'activity_count', 'total_duration_hr', 'total_cost', 'completed_activities', 'percent_complete_by_count']);
+});
+
+test('the real XER fixture yields one package per WBS node that holds activities', function () {
+    $data = (new XerParser)->parseFile($this->fixturePath());
+    $result = (new WorkPackageSummarizer)->summarize($data);
+
+    $wbsIdsWithActivities = $data->getTable('TASK')->pluck('wbs_id')->unique()->values()->all();
+
+    expect(array_column($result, 'wbs_id'))->toBe($wbsIdsWithActivities)
+        ->and(array_sum(array_column($result, 'activity_count')))->toBe($data->getTable('TASK')->count());
 });
 
 // ---------------------------------------------------------------

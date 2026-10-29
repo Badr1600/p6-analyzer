@@ -2,10 +2,18 @@
 
 namespace TeckFuture\P6Analyzer\Analyzers;
 
+use Illuminate\Support\Collection;
+use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\ParsedXerData;
 
 /**
  * Diffs two ParsedXerData snapshots to highlight changes.
+ *
+ * Activities are matched by task_code, the stable business identifier that
+ * survives re-imports (task_id is a database key that does not). An activity
+ * without a task_code has nothing to be matched on, so it is skipped, as
+ * ScheduleVarianceCalculator does, rather than being keyed under '' with every
+ * other activity that lacks one.
  */
 class SnapshotComparer
 {
@@ -14,8 +22,8 @@ class SnapshotComparer
      */
     public function compare(ParsedXerData $currentData, ParsedXerData $baselineData): array
     {
-        $currentActivities = $currentData->getActivities()->keyBy('task_code');
-        $baselineActivities = $baselineData->getActivities()->keyBy('task_code');
+        $currentActivities = $this->keyedByTaskCode($currentData);
+        $baselineActivities = $this->keyedByTaskCode($baselineData);
 
         $added = [];
         $deleted = [];
@@ -59,7 +67,7 @@ class SnapshotComparer
             }
         }
 
-        foreach ($baselineActivities as $taskCode => $baseline) {
+        foreach ($baselineActivities->keys() as $taskCode) {
             if (! $currentActivities->has($taskCode)) {
                 $deleted[] = $taskCode;
             }
@@ -71,5 +79,15 @@ class SnapshotComparer
             'modified_activities' => $modified,
             'total_changes' => count($added) + count($deleted) + count($modified),
         ];
+    }
+
+    /**
+     * @return Collection<string, ActivityData>
+     */
+    private function keyedByTaskCode(ParsedXerData $data): Collection
+    {
+        return $data->getActivities()
+            ->filter(fn (ActivityData $a) => $a->task_code !== null && $a->task_code !== '')
+            ->keyBy('task_code');
     }
 }
