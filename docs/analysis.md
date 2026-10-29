@@ -239,7 +239,7 @@ assignments add up to more than the daily limit (`resource_overallocation_daily_
 ```
 
 `qty_per_day` is the day's total and `activities` lists each contributing activity with its hours. `activity`
-repeats the first contributor and is kept for code written before 2.5.0.
+repeats the first contributor and is kept for code written before 3.0.0.
 
 `weekStartsOn` (optional, `'week'` period only) is Carbon's day number, `0` (Sunday) to `6` (Saturday). It groups
 each `'week'` key (`'Y-m-d (Week)'`) on the given day. Left `null` (the default), weeks start on the Carbon locale's

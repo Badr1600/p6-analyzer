@@ -23,7 +23,7 @@ class ResourceUtilizationAnalyzer
      *
      * An over-allocation is a resource (or role bucket) whose hours on one calendar day, summed across all of its
      * assignment lines, exceed the daily limit. Each entry is one resource-day: 'qty_per_day' is that total and
-     * 'activities' lists what contributed. 'activity' repeats the first contributor for callers written before 2.5.0.
+     * 'activities' lists what contributed. 'activity' repeats the first contributor for callers written before 3.0.0.
      *
      * A TASKRSRC line with no rsrc_id but a role_id is counted by role: it lands in a bucket keyed 'role:{role_id}'
      * (which cannot collide with a resource name), needs no RSRC row, and is described in the 'roles' map.
