@@ -27,12 +27,21 @@ final class ActivityData
     public const WBS_SUMMARY_TASK_TYPE = 'TT_WBS';
 
     /**
-     * Task types P6 writes for milestones (`TASK.task_type`): `TT_Mile` is a
-     * start milestone and `TT_FinMile` a finish milestone.
+     * Task type P6 writes for a start milestone (`TASK.task_type`).
+     */
+    public const START_MILESTONE_TASK_TYPE = 'TT_Mile';
+
+    /**
+     * Task type P6 writes for a finish milestone (`TASK.task_type`).
+     */
+    public const FINISH_MILESTONE_TASK_TYPE = 'TT_FinMile';
+
+    /**
+     * Both milestone task types.
      *
      * @var array<int, string>
      */
-    public const MILESTONE_TASK_TYPES = ['TT_Mile', 'TT_FinMile'];
+    public const MILESTONE_TASK_TYPES = [self::START_MILESTONE_TASK_TYPE, self::FINISH_MILESTONE_TASK_TYPE];
 
     /**
      * P6 status code mapping from raw codes to normalized strings.

@@ -11,7 +11,9 @@ use TeckFuture\P6Analyzer\Support\MissingLogic;
  * Performs general schedule health checks beyond DCMA 14-point.
  *
  * `missing_logic` follows the rule of DCMA point 1 (see MissingLogic): an
- * incomplete activity without a predecessor or without a successor.
+ * incomplete activity without a predecessor or without a successor, except
+ * that a start milestone needs only a successor and a finish milestone only
+ * a predecessor.
  *
  * Alongside each count, the offending activities travel as drill-down lists
  * (id, task_code, name), capped at `details_limit` rows per check — the

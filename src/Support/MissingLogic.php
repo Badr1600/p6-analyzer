@@ -11,9 +11,10 @@ use TeckFuture\P6Analyzer\DTOs\RelationshipData;
  * `missing_logic`, so the two always flag the same activities.
  *
  * An activity is missing logic when it is not complete and has no predecessor
- * OR no successor. Three kinds are never flagged: completed activities, WBS
- * summary activities (they carry no logic of their own) and milestones, which
- * are legitimately open-ended on one side.
+ * OR no successor. Two kinds are treated differently: WBS summary activities
+ * are never examined (they carry no logic of their own), and a milestone is
+ * open-ended on one side by nature, so a start milestone needs only a
+ * successor and a finish milestone only a predecessor.
  */
 final class MissingLogic
 {
@@ -40,18 +41,27 @@ final class MissingLogic
         }
 
         return $activities
-            ->filter(fn (ActivityData $activity) => self::isChecked($activity)
-                && (! isset($hasPredecessor[$activity->id]) || ! isset($hasSuccessor[$activity->id])))
+            ->filter(function (ActivityData $activity) use ($hasPredecessor, $hasSuccessor) {
+                if (! self::isChecked($activity)) {
+                    return false;
+                }
+
+                // Nothing comes before a start milestone, or after a finish milestone.
+                $needsPredecessor = $activity->task_type !== ActivityData::START_MILESTONE_TASK_TYPE;
+                $needsSuccessor = $activity->task_type !== ActivityData::FINISH_MILESTONE_TASK_TYPE;
+
+                return ($needsPredecessor && ! isset($hasPredecessor[$activity->id]))
+                    || ($needsSuccessor && ! isset($hasSuccessor[$activity->id]));
+            })
             ->values();
     }
 
     /**
-     * Whether the logic rule applies to the activity at all.
+     * Whether the logic rule examines the activity at all.
      */
     private static function isChecked(ActivityData $activity): bool
     {
         return $activity->status_code !== 'Completed'
-            && $activity->task_type !== ActivityData::WBS_SUMMARY_TASK_TYPE
-            && ! in_array($activity->task_type, ActivityData::MILESTONE_TASK_TYPES, true);
+            && $activity->task_type !== ActivityData::WBS_SUMMARY_TASK_TYPE;
     }
 }

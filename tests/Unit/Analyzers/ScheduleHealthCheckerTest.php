@@ -78,20 +78,42 @@ test('activity with no predecessor and no successor counted as missing logic', f
     expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(1);
 });
 
-test('start milestone is excluded from missing logic count', function () {
+test('start milestone with only a successor is not missing logic', function () {
+    // Nothing leads to milestone 1, but task 2 follows it
     $data = makeHealthData(
         tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'task_type' => 'TT_Mile']],
+        relationships: [['task_pred_id' => '99', 'task_id' => '2', 'pred_task_id' => '1', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '0']],
     );
 
     expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(0);
 });
 
-test('finish milestone excluded from missing logic', function () {
+test('start milestone without a successor counted as missing logic', function () {
+    $data = makeHealthData(
+        tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'task_type' => 'TT_Mile']],
+        relationships: [['task_pred_id' => '99', 'task_id' => '1', 'pred_task_id' => '2', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '0']],
+    );
+
+    expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(1);
+});
+
+test('finish milestone with only a predecessor is not missing logic', function () {
+    // Task 2 leads to milestone 1, but nothing follows it
     $data = makeHealthData(
         tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'task_type' => 'TT_FinMile']],
+        relationships: [['task_pred_id' => '99', 'task_id' => '1', 'pred_task_id' => '2', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '0']],
     );
 
     expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(0);
+});
+
+test('finish milestone without a predecessor counted as missing logic', function () {
+    $data = makeHealthData(
+        tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'task_type' => 'TT_FinMile']],
+        relationships: [['task_pred_id' => '99', 'task_id' => '2', 'pred_task_id' => '1', 'pred_type' => 'PR_FS', 'lag_hr_cnt' => '0']],
+    );
+
+    expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(1);
 });
 
 test('activity with a predecessor but no successor counted as missing logic', function () {
@@ -209,8 +231,9 @@ test('runs against real XER fixture without error', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new ScheduleHealthChecker)->check($data, '2024-01-15');
 
-    // Missing logic: six open tasks that have a predecessor but no successor (the fixture's WBS
-    // summaries and milestones are exempt, and so are its completed activities)
+    // Missing logic: six open tasks that have a predecessor but no successor. The fixture's WBS
+    // summaries and completed activities (both start milestones among them) are not checked, and
+    // each of its finish milestones has a predecessor.
     expect($result['total_activities'])->toBeGreaterThan(0)
         ->and($result['missing_resources'])->toBe(150)
         ->and($result['missing_logic'])->toBe(6);
@@ -337,23 +360,25 @@ test('the health check and the DCMA logic point flag the same activities', funct
 
     $data = makeHealthData(
         tasks: [
-            $task('1', type: 'TT_Mile'),                      // start milestone: exempt
-            $task('2'),                                       // predecessors 1 and 4, successors 3 and 8: linked
+            $task('1', type: 'TT_Mile'),                      // start milestone with a successor: fine
+            $task('2'),                                       // predecessors 1 and 4, successors 3, 8 and 9: linked
             $task('3'),                                       // no successor
             $task('4'),                                       // no predecessor
             $task('5'),                                       // neither
             $task('6', status: 'TK_Complete'),                // completed: exempt
             $task('7', status: 'TK_Active', type: 'TT_WBS'),  // WBS summary: exempt
-            $task('8', type: 'TT_FinMile'),                   // finish milestone: exempt
+            $task('8', type: 'TT_FinMile'),                   // finish milestone with a predecessor: fine
+            $task('9', type: 'TT_Mile'),                      // start milestone with no successor
+            $task('10', type: 'TT_FinMile'),                  // finish milestone with no predecessor
         ],
-        relationships: [$link('1', '2'), $link('4', '2'), $link('2', '3'), $link('2', '8')],
+        relationships: [$link('1', '2'), $link('4', '2'), $link('2', '3'), $link('2', '8'), $link('2', '9'), $link('10', '3')],
     );
 
     $health = (new ScheduleHealthChecker)->check($data);
     $dcma = (new DCMA14PointChecker)->calculate($data->getActivities(), null, $data->getRelationships());
     $logic = collect($dcma['points'])->firstWhere('key', 'missing_logic');
 
-    expect($health['missing_logic'])->toBe(3)
+    expect($health['missing_logic'])->toBe(5)
         ->and($logic['count'])->toBe($health['missing_logic'])
-        ->and(array_column($health['missing_logic_activities'], 'task_code'))->toBe(['A3', 'A4', 'A5']);
+        ->and(array_column($health['missing_logic_activities'], 'task_code'))->toBe(['A3', 'A4', 'A5', 'A9', 'A10']);
 });

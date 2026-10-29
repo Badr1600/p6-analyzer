@@ -557,6 +557,8 @@ test('task_type is read from the TASK row and an empty value is null', function 
 
 test('it names the task types P6 writes for milestones and WBS summaries', function () {
     // P6 has a start milestone (TT_Mile) and a finish milestone (TT_FinMile); there is no TT_StartMile
-    expect(ActivityData::MILESTONE_TASK_TYPES)->toBe(['TT_Mile', 'TT_FinMile'])
+    expect(ActivityData::START_MILESTONE_TASK_TYPE)->toBe('TT_Mile')
+        ->and(ActivityData::FINISH_MILESTONE_TASK_TYPE)->toBe('TT_FinMile')
+        ->and(ActivityData::MILESTONE_TASK_TYPES)->toBe(['TT_Mile', 'TT_FinMile'])
         ->and(ActivityData::WBS_SUMMARY_TASK_TYPE)->toBe('TT_WBS');
 });

@@ -68,8 +68,33 @@ test('a WBS summary activity is not missing logic', function () {
     expect(missingLogicCodes([makeLogicActivity('1', type: 'TT_WBS')], []))->toBe([]);
 });
 
-test('a milestone is not missing logic', function (string $type) {
-    expect(missingLogicCodes([makeLogicActivity('1', type: $type)], []))->toBe([]);
+test('a start milestone with only a successor is not missing logic', function () {
+    // Nothing comes before a start milestone
+    expect(missingLogicCodes([makeLogicActivity('1', type: 'TT_Mile')], [makeLogicLink('1', '9')]))->toBe([]);
+});
+
+test('a start milestone with only a predecessor is missing logic', function () {
+    expect(missingLogicCodes([makeLogicActivity('1', type: 'TT_Mile')], [makeLogicLink('9', '1')]))->toBe(['A1']);
+});
+
+test('a finish milestone with only a predecessor is not missing logic', function () {
+    // Nothing comes after a finish milestone
+    expect(missingLogicCodes([makeLogicActivity('1', type: 'TT_FinMile')], [makeLogicLink('9', '1')]))->toBe([]);
+});
+
+test('a finish milestone with only a successor is missing logic', function () {
+    expect(missingLogicCodes([makeLogicActivity('1', type: 'TT_FinMile')], [makeLogicLink('1', '9')]))->toBe(['A1']);
+});
+
+test('a milestone with no links at all is missing logic', function (string $type) {
+    expect(missingLogicCodes([makeLogicActivity('1', type: $type)], []))->toBe(['A1']);
+})->with([
+    'start milestone' => 'TT_Mile',
+    'finish milestone' => 'TT_FinMile',
+]);
+
+test('a completed milestone is not missing logic', function (string $type) {
+    expect(missingLogicCodes([makeLogicActivity('1', status: 'TK_Complete', type: $type)], []))->toBe([]);
 })->with([
     'start milestone' => 'TT_Mile',
     'finish milestone' => 'TT_FinMile',
