@@ -92,9 +92,12 @@ return [
     |
     | default_method: measurement basis used when none is passed explicitly —
     |   'cost', 'labor_units', 'duration', or 'auto' (pick the best-covered
-    |   method per project; never mixes units across activities).
+    |   method per project; never mixes units across activities). null or ''
+    |   means 'auto'; any other value makes earnedValue() throw an
+    |   InvalidArgumentException.
     |
-    | auto_coverage_threshold: minimum share (0–1) of measurable activities
+    | auto_coverage_threshold: minimum share (0–1, so 0.5 is half; not a 0–100
+    |   percentage like coverage_pct in the result) of measurable activities
     |   that must carry data for 'auto' to select cost or labor units before
     |   falling back to duration.
     |

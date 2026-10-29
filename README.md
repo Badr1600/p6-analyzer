@@ -16,7 +16,7 @@ A standalone Laravel package for parsing, analyzing, and exporting **Primavera P
 - **Float Distribution** — Analyze total float spread across the schedule
 - **Relationship Analysis** — FS/SS/FF/SF type distribution and lag metrics
 - **Schedule Variance** — Compare two schedules to detect slipping activities
-- **Schedule Health Check** — Missing resources, missing logic, out-of-sequence detection
+- **Schedule Health Check** — Missing resources, missing logic, actual starts after the data date
 - **Resource Utilization** — Per-resource loading with over-allocation detection
 - **WBS Analysis** — Work breakdown structure metrics
 - **Lookahead Generation** — Filtered x-week lookahead schedules
@@ -89,7 +89,7 @@ $evm = $analyzer->earnedValue('2024-01-15', EvmMethod::LaborUnits);
 
 $evm['cpi'];                  // ?float — null when actual cost is unknowable
 $evm['method'];               // which basis actually ran, e.g. 'cost'
-$evm['coverage'];             // how many measurable activities carried data
+$evm['coverage'];             // how many measurable activities carried data; coverage_pct is 0–100
 $evm['actual_cost_sources'];  // tracked vs inferred vs status-derived AC
 
 // Every method in one pass (mirrors P6's By-Cost / By-Labor-Units pairs)

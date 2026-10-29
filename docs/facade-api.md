@@ -23,7 +23,7 @@ The central class for all operations. Can be used standalone (without Laravel) o
 | `earnedValue(?string $dataDate = null, EvmMethod\|string\|null $method = null)` | `array` | `EarnedValueCalculator` |
 | `earnedValueReport(?string $dataDate = null)` | `array` | `EarnedValueCalculator` |
 | `relationshipAnalysis()` | `array` | `RelationshipAnalyzer` |
-| `scheduleVariance(ParsedXerData $masterData)` | `array` | `ScheduleVarianceCalculator` |
+| `scheduleVariance(ParsedXerData $baselineData)` | `array` | `ScheduleVarianceCalculator` |
 | `scheduleHealth(?string $dataDate = null)` | `array` | `ScheduleHealthChecker` |
 | `resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null, array $roleLabels = [])` | `array` | `ResourceUtilizationAnalyzer` |
 | `wbsAnalysis()` | `array` | `WbsAnalyzer` |

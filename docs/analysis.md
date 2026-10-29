@@ -89,6 +89,18 @@ calculation, never mixed per activity:
 | `duration` | `target_drtn_hr_cnt` / — / `remain_drtn_hr_cnt` | `schedule_hours` |
 | `auto` *(default)* | Best-covered method above, preferring cost, then labor units | resolved |
 
+The method is an `EvmMethod` case or its string value (`'cost'`, `'labor_units'`, `'duration'` or `'auto'`). Any other
+string, a different case such as `'Cost'` included, throws an `\InvalidArgumentException` that lists the valid values.
+`null` uses the configured `evm.default_method`, and an unknown value there throws the same exception:
+
+```php
+try {
+    $analyzer->earnedValue('2024-06-15', 'Cost');
+} catch (\InvalidArgumentException $e) {
+    $e->getMessage(); // Unknown EVM method "Cost". Valid values: cost, labor_units, duration, auto.
+}
+```
+
 ```php
 use TeckFuture\P6Analyzer\Enums\EvmMethod;
 
@@ -104,6 +116,12 @@ $result = $analyzer->earnedValue('2024-06-15', EvmMethod::LaborUnits); // explic
 
 `cpi`, `spi`, and `tcpi` are `null` — not a fake `1.0` — when their
 denominators are zero (no actuals tracked, no planned value at the data date).
+
+`coverage` reports how much of the schedule the method could use: `total_activities` is every activity,
+`measurable_activities` leaves out WBS summaries and milestones, and `activities_with_data` is how many of those carry
+data for the method. `coverage_pct` is `activities_with_data` as a percentage of `measurable_activities`, from 0 to 100
+and rounded to two decimals (`71.61` for 275 of 384). It is a percentage, unlike `evm.auto_coverage_threshold`, which is
+a share from 0 to 1.
 
 All methods in one pass, mirroring P6's paired By-Cost / By-Labor-Units
 summaries:
@@ -157,14 +175,14 @@ the number of current activities with no match in the baseline (`current_activit
 activity slips when its finish is later than its baseline finish by more than `min_slip_days` days (default 0).
 `average_variance_days` and `max_variance_days` cover the slipping activities only.
 
-`master_*` keys hold the baseline dates and `workbench_*` keys the current ones. The variances are whole calendar days,
+`baseline_*` keys hold the baseline dates and `current_*` keys the current ones. The variances are whole calendar days,
 positive when the current date is later and negative when it is earlier:
 
 ```php
 foreach ($result['slipping_activities'] as $activity) {
     // ['id', 'task_code', 'name', 'status', 'total_float_hr',
-    //  'master_start', 'workbench_start', 'start_variance_days',
-    //  'master_finish', 'workbench_finish', 'variance_days']
+    //  'baseline_start', 'current_start', 'start_variance_days',
+    //  'baseline_finish', 'current_finish', 'variance_days']
 }
 ```
 
@@ -182,13 +200,14 @@ moved a few hours within the same day is a variance of 0 and not a slip, and a f
 
 ```php
 $result = $analyzer->scheduleHealth('2024-01-15');
-// ['total_activities', 'missing_resources', 'missing_logic', 'out_of_sequence',
+// ['total_activities', 'missing_resources', 'missing_logic', 'actual_start_after_data_date',
 //  'lags_count', 'leads_count', 'details_limit',
-//  'missing_resources_activities', 'missing_logic_activities', 'out_of_sequence_activities']
+//  'missing_resources_activities', 'missing_logic_activities', 'actual_start_after_data_date_activities']
 ```
 
 Each `*_activities` list names the activities behind the matching count and holds at most `details_limit` entries (200);
-the counts stay exact when a list is capped. `out_of_sequence` needs the data date.
+the counts stay exact when a list is capped. `actual_start_after_data_date` counts the activities whose actual start is
+after the data date, so it needs the data date and is 0 without one.
 
 ```php
 foreach ($result['missing_logic_activities'] as $activity) {

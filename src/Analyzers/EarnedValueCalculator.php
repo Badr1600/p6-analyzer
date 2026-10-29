@@ -27,8 +27,9 @@ use TeckFuture\P6Analyzer\Support\PercentComplete;
  *   percent complete that earns value.
  * - status_overrides_percent (bool, default true): Completed activities earn
  *   100% and Not Started activities earn 0%, regardless of stale % fields.
- * - auto_coverage_threshold (float, default 0.5): minimum share of
- *   measurable activities that must carry data for Auto to pick a method.
+ * - auto_coverage_threshold (float, default 0.5): minimum share (0–1, not the
+ *   0–100 coverage_pct of the result) of measurable activities that must
+ *   carry data for Auto to pick a method.
  */
 class EarnedValueCalculator
 {
@@ -43,6 +44,9 @@ class EarnedValueCalculator
 
     /**
      * Calculate EVM metrics for one measurement method.
+     *
+     * coverage_pct is the share of the measurable activities that carry data
+     * for the method, as a percentage from 0 to 100.
      *
      * @param  Collection<int, ActivityData>|array<int, ActivityData>  $activities
      * @return array{method: string, unit: string, data_date: ?string, planned_value: float, earned_value: float, actual_cost: float, budget_at_completion: float, cost_variance: float, schedule_variance: float, cpi: ?float, spi: ?float, estimate_at_completion: float, estimate_to_complete: float, variance_at_completion: float, tcpi: ?float, coverage: array{total_activities: int, measurable_activities: int, activities_with_data: int, coverage_pct: float}, actual_cost_sources: array{tracked: int, inferred_from_remaining: int, status: int, none: int}}
@@ -176,7 +180,7 @@ class EarnedValueCalculator
                 'total_activities' => $activities->count(),
                 'measurable_activities' => $measurable,
                 'activities_with_data' => $withData,
-                'coverage_pct' => $measurable > 0 ? round($withData / $measurable, 2) : 0.0,
+                'coverage_pct' => $measurable > 0 ? round(($withData / $measurable) * 100, 2) : 0.0,
             ],
             'actual_cost_sources' => $acSources,
         ];
@@ -283,7 +287,8 @@ class EarnedValueCalculator
 
     /**
      * Share of measurable (non-summary, non-milestone) activities carrying
-     * data for the given method.
+     * data for the given method, as a 0–1 ratio: the scale of
+     * auto_coverage_threshold, unlike the 0–100 coverage_pct of the result.
      *
      * @param  Collection<int, ActivityData>  $activities
      */

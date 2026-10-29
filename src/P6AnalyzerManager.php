@@ -125,10 +125,16 @@ class P6AnalyzerManager
     /**
      * Run earned value analysis under a single measurement method.
      *
+     * coverage_pct is the share of the measurable activities that carry data
+     * for the method, as a percentage from 0 to 100.
+     *
      * @param  EvmMethod|string|null  $method  Measurement basis ('cost', 'labor_units',
      *                                         'duration', 'auto'); null uses the
      *                                         configured default, falling back to auto.
-     * @return array{method: string, unit: string, data_date: ?string, planned_value: float, earned_value: float, actual_cost: float, budget_at_completion: float, cost_variance: float, schedule_variance: float, cpi: ?float, spi: ?float, estimate_at_completion: float, estimate_to_complete: float, variance_at_completion: float, tcpi: ?float, coverage: array, actual_cost_sources: array}
+     * @return array{method: string, unit: string, data_date: ?string, planned_value: float, earned_value: float, actual_cost: float, budget_at_completion: float, cost_variance: float, schedule_variance: float, cpi: ?float, spi: ?float, estimate_at_completion: float, estimate_to_complete: float, variance_at_completion: float, tcpi: ?float, coverage: array{total_activities: int, measurable_activities: int, activities_with_data: int, coverage_pct: float}, actual_cost_sources: array}
+     *
+     * @throws \InvalidArgumentException When $method, or the configured evm.default_method it
+     *                                   falls back to, is a string that names no method.
      */
     public function earnedValue(?string $dataDate = null, EvmMethod|string|null $method = null): array
     {
@@ -171,16 +177,16 @@ class P6AnalyzerManager
     /**
      * Run schedule variance (slippage) analysis.
      *
-     * @param  ParsedXerData  $masterData  Baseline schedule to compare against.
+     * @param  ParsedXerData  $baselineData  Baseline schedule to compare against.
      * @return array{total_activities_compared: int, current_activities_count: int, matched_count: int, unmatched_count: int, slipping_activities_count: int, average_variance_days: float, max_variance_days: int, slipping_activities: array<int, array<string, mixed>>}
      */
-    public function scheduleVariance(ParsedXerData $masterData): array
+    public function scheduleVariance(ParsedXerData $baselineData): array
     {
         $this->ensureLoaded();
 
         return (new ScheduleVarianceCalculator)->calculate(
             $this->data->getActivities(),
-            $masterData->getActivities(),
+            $baselineData->getActivities(),
         );
     }
 
@@ -191,7 +197,7 @@ class P6AnalyzerManager
     /**
      * Run schedule health check.
      *
-     * @return array{total_activities: int, missing_resources: int, missing_logic: int, out_of_sequence: int, lags_count: int, leads_count: int, details_limit: int, missing_resources_activities: list<array{id: string, task_code: ?string, name: ?string}>, missing_logic_activities: list<array{id: string, task_code: ?string, name: ?string}>, out_of_sequence_activities: list<array{id: string, task_code: ?string, name: ?string}>}
+     * @return array{total_activities: int, missing_resources: int, missing_logic: int, actual_start_after_data_date: int, lags_count: int, leads_count: int, details_limit: int, missing_resources_activities: list<array{id: string, task_code: ?string, name: ?string}>, missing_logic_activities: list<array{id: string, task_code: ?string, name: ?string}>, actual_start_after_data_date_activities: list<array{id: string, task_code: ?string, name: ?string}>}
      */
     public function scheduleHealth(?string $dataDate = null): array
     {

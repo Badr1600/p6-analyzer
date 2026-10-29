@@ -207,6 +207,22 @@ test('earnedValue() returns the documented result keys', function () {
     expect($result)->toHaveKeys(['cpi', 'spi', 'earned_value', 'actual_cost', 'budget_at_completion']);
 });
 
+test('earnedValue() takes the method as a string', function () {
+    $manager = loadedManager();
+
+    expect($manager->earnedValue(null, 'labor_units')['method'])->toBe('labor_units')
+        ->and($manager->earnedValue(null, 'duration')['method'])->toBe('duration');
+});
+
+test('earnedValue() reads an empty method string as auto', function () {
+    // The fixture's cost coverage clears the auto threshold, so auto resolves to cost
+    expect(loadedManager()->earnedValue(null, '')['method'])->toBe('cost');
+});
+
+test('earnedValue() rejects a method string it does not know', function () {
+    loadedManager()->earnedValue('2024-01-15', 'bogus');
+})->throws(InvalidArgumentException::class, 'Unknown EVM method "bogus". Valid values: cost, labor_units, duration, auto.');
+
 test('relationshipAnalysis() total_relationships is greater than zero', function () {
     $result = loadedManager()->relationshipAnalysis();
 
@@ -222,10 +238,18 @@ test('scheduleVariance() returns zero slippage when compared to self', function 
         ->and($result['slipping_activities_count'])->toBe(0);
 });
 
+test('scheduleVariance() takes the baseline schedule as $baselineData', function () {
+    $manager = loadedManager();
+    $result = $manager->scheduleVariance(baselineData: $manager->getData());
+
+    expect($result['total_activities_compared'])->toBeGreaterThan(0)
+        ->and($result['slipping_activities_count'])->toBe(0);
+});
+
 test('scheduleHealth() returns required health keys', function () {
     $result = loadedManager()->scheduleHealth('2024-01-15');
 
-    expect($result)->toHaveKeys(['total_activities', 'missing_resources', 'missing_logic', 'out_of_sequence', 'lags_count', 'leads_count'])
+    expect($result)->toHaveKeys(['total_activities', 'missing_resources', 'missing_logic', 'actual_start_after_data_date', 'lags_count', 'leads_count'])
         ->and($result['total_activities'])->toBeGreaterThan(0);
 });
 

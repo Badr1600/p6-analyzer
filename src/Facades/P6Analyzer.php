@@ -16,7 +16,7 @@ use TeckFuture\P6Analyzer\P6AnalyzerManager;
  * @method static array earnedValue(?string $dataDate = null, \TeckFuture\P6Analyzer\Enums\EvmMethod|string|null $method = null)
  * @method static array earnedValueReport(?string $dataDate = null)
  * @method static array relationshipAnalysis()
- * @method static array scheduleVariance(\TeckFuture\P6Analyzer\DTOs\ParsedXerData $masterData)
+ * @method static array scheduleVariance(\TeckFuture\P6Analyzer\DTOs\ParsedXerData $baselineData)
  * @method static array scheduleHealth(?string $dataDate = null)
  * @method static array resourceUtilization(string $period = 'week', ?float $dailyLimit = null, ?int $weekStartsOn = null, array $roleLabels = [])
  * @method static array wbsAnalysis()

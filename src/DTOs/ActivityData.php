@@ -16,7 +16,7 @@ use Carbon\Carbon;
  * $activity = ActivityData::fromModelOrArray($xerRow);
  *
  * // From a Laravel model
- * $activity = ActivityData::fromModelOrArray($workbenchActivity);
+ * $activity = ActivityData::fromModelOrArray($model);
  * ```
  */
 final class ActivityData
@@ -56,7 +56,6 @@ final class ActivityData
 
     public function __construct(
         public readonly string $id,
-        public readonly ?string $activity_id,
         public readonly ?string $task_code,
         public readonly ?string $name,
         public readonly ?string $status_code,
@@ -100,7 +99,6 @@ final class ActivityData
 
         return new self(
             id: (string) ($isArray ? ($activity['id'] ?? $activity['task_id'] ?? $rawData['task_id'] ?? '') : $activity->id),
-            activity_id: $isArray ? ($activity['activity_id'] ?? $rawData['activity_id'] ?? null) : ($activity->activity_id ?? null),
             task_code: (string) ($isArray ? ($activity['task_code'] ?? $rawData['task_code'] ?? '') : ($activity->task_code ?? '')),
             name: (string) ($isArray ? ($activity['task_name'] ?? $activity['name'] ?? $rawData['task_name'] ?? '') : ($activity->name ?? '')),
             status_code: self::normalizeStatus($rawStatus),

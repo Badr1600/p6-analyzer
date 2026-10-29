@@ -129,6 +129,29 @@ test('evm.default_method sets the method earnedValue() uses when none is passed'
         ->and($manager->earnedValue(null, EvmMethod::Cost)['method'])->toBe('cost');
 });
 
+test('an unknown evm.default_method makes earnedValue() throw instead of falling back to auto', function () {
+    $manager = (new P6AnalyzerManager)->load($this->fixturePath());
+
+    config(['p6-analyzer.evm.default_method' => 'labour_units']);
+
+    expect(fn () => $manager->earnedValue())
+        ->toThrow(InvalidArgumentException::class, 'Unknown EVM method "labour_units". Valid values: cost, labor_units, duration, auto.')
+        // A method passed to the call wins over the configured default, so the call is still usable
+        ->and($manager->earnedValue(null, EvmMethod::Cost)['method'])->toBe('cost');
+});
+
+test('a null or empty evm.default_method means auto', function (mixed $configured) {
+    $manager = (new P6AnalyzerManager)->load($this->fixturePath());
+
+    config(['p6-analyzer.evm.default_method' => $configured]);
+
+    // The fixture's cost coverage clears the auto threshold, so auto resolves to cost
+    expect($manager->earnedValue()['method'])->toBe('cost');
+})->with([
+    'null' => [null],
+    'an empty string' => [''],
+]);
+
 test('evm options passed to the constructor win over the evm config', function () {
     // BAC 100 with 40 remaining and nothing tracked: actual cost is inferred as 60 when inference is on
     $activities = collect([makeConfigActivity(['target_cost' => '100', 'remain_cost' => '40', 'phys_comp_pct' => '60'])]);

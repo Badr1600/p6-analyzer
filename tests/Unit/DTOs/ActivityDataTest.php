@@ -465,7 +465,7 @@ test('object raw_data that is not an array is cast to array', function () {
 });
 
 // ---------------------------------------------------------------
-// id, activity_id and task_code resolution
+// id and task_code resolution
 // ---------------------------------------------------------------
 
 test('id key takes precedence over task_id', function () {
@@ -484,13 +484,18 @@ test('task_id key takes precedence over rawData task_id', function () {
     expect($activity->id)->toBe('TOP_TASK_ID');
 });
 
-test('activity_id key takes precedence over rawData activity_id', function () {
-    $activity = ActivityData::fromModelOrArray([
-        'task_id' => '1',
-        'activity_id' => 'TOP_ACT_ID',
-        'raw_data' => ['activity_id' => 'RAW_ACT_ID'],
-    ]);
-    expect($activity->activity_id)->toBe('TOP_ACT_ID');
+test('it has no application-specific activity_id', function () {
+    $constructorParameters = array_map(
+        fn (ReflectionParameter $parameter) => $parameter->getName(),
+        (new ReflectionClass(ActivityData::class))->getConstructor()->getParameters(),
+    );
+
+    $activity = ActivityData::fromModelOrArray(['task_id' => '1', 'activity_id' => 'APP-1']);
+
+    // A flat row still keeps all of its columns, activity_id included, in raw_data
+    expect($constructorParameters)->not->toContain('activity_id')
+        ->and(property_exists($activity, 'activity_id'))->toBeFalse()
+        ->and($activity->raw_data['activity_id'])->toBe('APP-1');
 });
 
 test('task_code key takes precedence over rawData task_code', function () {

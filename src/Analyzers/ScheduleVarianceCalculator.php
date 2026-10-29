@@ -11,9 +11,7 @@ use TeckFuture\P6Analyzer\Support\Config;
  * Calculates schedule variance (slippage) between two sets of activities.
  *
  * Activities are matched by task_code — the stable business identifier that
- * survives re-imports. (Matching previously used activity_id, which imported
- * XER data never carries: keyBy(null) collapsed the whole baseline onto one
- * arbitrary row and every activity was compared against it.)
+ * survives re-imports.
  */
 class ScheduleVarianceCalculator
 {
@@ -79,11 +77,11 @@ class ScheduleVarianceCalculator
                 'name' => $current->name,
                 'status' => $current->status_code,
                 'total_float_hr' => $current->total_float_hr_cnt,
-                'master_start' => $baseline->target_start_date?->toDateString(),
-                'workbench_start' => $current->target_start_date?->toDateString(),
+                'baseline_start' => $baseline->target_start_date?->toDateString(),
+                'current_start' => $current->target_start_date?->toDateString(),
                 'start_variance_days' => $this->signedDayDiff($baseline->target_start_date, $current->target_start_date),
-                'master_finish' => $baselineFinish?->toDateString(),
-                'workbench_finish' => $currentFinish?->toDateString(),
+                'baseline_finish' => $baselineFinish?->toDateString(),
+                'current_finish' => $currentFinish?->toDateString(),
                 'variance_days' => $finishVariance,
             ]);
         }
