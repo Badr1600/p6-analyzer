@@ -73,3 +73,34 @@ Via Manager:
 ```php
 $csv = $analyzer->exportCsv('TASK');
 ```
+
+The output follows RFC 4180: a double quote inside a value is doubled, and a value with a comma, a quote or a
+line break is enclosed in double quotes. Nothing is backslash-escaped.
+
+### Formula Guard
+
+A spreadsheet runs a cell that starts with `=`, `+`, `-` or `@` as a formula, and some do the same for a cell
+that starts with a tab or a carriage return. Activity names, notes and other free text in a schedule come from
+many people, so opening an exported CSV in Excel or LibreOffice could run a formula that one of them typed.
+The exporter therefore puts a single quote in front of such a cell, so the spreadsheet reads it as text:
+
+| Cell | Written as |
+|---|---|
+| `=1+1` | `'=1+1` |
+| `@SUM(A1:A9)` | `'@SUM(A1:A9)` |
+| `-16.0`, `+5` | unchanged, they are numeric |
+| `Phase 2 - civil`, `user@example.com` | unchanged, they do not start with one of the characters |
+
+The guard covers the header row as well. Only strings are touched, and a numeric string such as `-16.0` stays
+as it is, so negative numbers keep their sign.
+
+The quote becomes part of the cell: it is visible in the spreadsheet and present when a program reads the CSV.
+For a program that reads the CSV rather than a spreadsheet, turn the guard off:
+
+```php
+$exporter = new CsvExporter(escapeFormulas: false);
+$csv = $exporter->export($data->getTable('TASK'));
+```
+
+`$analyzer->exportCsv()` always applies the guard. To get raw values from the manager's data, use the exporter
+directly: `(new CsvExporter(escapeFormulas: false))->export($analyzer->getData()->getTable('TASK'))`.
