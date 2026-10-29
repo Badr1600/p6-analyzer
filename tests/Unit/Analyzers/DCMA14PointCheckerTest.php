@@ -116,6 +116,20 @@ test('leads and lags and relationship types are measured', function () {
         ->and($byKey['missing_logic']['passed'])->toBeTrue();
 });
 
+test('start and finish milestones are exempt from the logic point', function () {
+    // TT_Mile and TT_FinMile are the task types P6 writes for start and finish milestones
+    $activities = collect([
+        makeDcmaPointActivity([], ['task_id' => '1', 'task_type' => 'TT_Mile']),
+        makeDcmaPointActivity(['task_code' => 'A2'], ['task_id' => '2', 'task_type' => 'TT_FinMile']),
+    ]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, '2024-06-01', collect());
+    $logic = collect($result['points'])->firstWhere('key', 'missing_logic');
+
+    expect($logic['count'])->toBe(0)
+        ->and($logic['passed'])->toBeTrue();
+});
+
 test('hard constraints and missed activities are counted', function () {
     $activities = collect([
         makeDcmaPointActivity([], ['task_id' => '1', 'cstr_type' => 'CS_MANDFIN']),

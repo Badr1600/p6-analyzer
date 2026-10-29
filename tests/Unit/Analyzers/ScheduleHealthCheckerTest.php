@@ -77,9 +77,9 @@ test('activity with no predecessor and no successor counted as missing logic', f
     expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(1);
 });
 
-test('milestone activity is excluded from missing logic count', function () {
+test('start milestone is excluded from missing logic count', function () {
     $data = makeHealthData(
-        tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'task_type' => 'TT_StartMile']],
+        tasks: [['task_id' => '1', 'status_code' => 'TK_Active', 'task_type' => 'TT_Mile']],
     );
 
     expect((new ScheduleHealthChecker)->check($data)['missing_logic'])->toBe(0);
@@ -171,7 +171,7 @@ test('runs against real XER fixture without error', function () {
 
     expect($result['total_activities'])->toBeGreaterThan(0)
         ->and($result['missing_resources'])->toBe(150)
-        ->and($result['missing_logic'])->toBe(11);
+        ->and($result['missing_logic'])->toBe(10);
 });
 
 // ---------------------------------------------------------------

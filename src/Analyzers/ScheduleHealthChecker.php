@@ -78,9 +78,8 @@ class ScheduleHealthChecker
                 }
             }
 
-            $type = $activity->raw_data['task_type'] ?? '';
             if (! isset($hasPredecessor[$activity->id]) && ! isset($hasSuccessor[$activity->id])) {
-                if ($type !== 'TT_StartMile' && $type !== 'TT_FinMile') {
+                if (! in_array($activity->task_type, ActivityData::MILESTONE_TASK_TYPES, true)) {
                     $health['missing_logic']++;
                     if (count($health['missing_logic_activities']) < self::DETAILS_LIMIT) {
                         $health['missing_logic_activities'][] = $describe($activity);

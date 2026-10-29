@@ -150,7 +150,7 @@ class DCMA14PointChecker
                 if ($activity->status_code === 'Completed') {
                     continue;
                 }
-                if (in_array($activity->task_type, ['TT_StartMile', 'TT_FinMile'], true)) {
+                if (in_array($activity->task_type, ActivityData::MILESTONE_TASK_TYPES, true)) {
                     continue;
                 }
                 if (! isset($hasPredecessor[$activity->id]) && ! isset($hasSuccessor[$activity->id])) {
