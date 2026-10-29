@@ -35,7 +35,7 @@ All configuration values have sensible defaults and are optional to publish.
 ### `resource_overallocation_daily_limit`
 - **Type:** `float` (hours)
 - **Default:** `8`
-- Resources allocated more than this many hours per day are flagged as over-allocated.
+- A resource whose assignments add up to more than this many hours on one day is flagged as over-allocated for that day.
 
 ### `evm.default_method`
 - **Type:** `string` — `'cost'` | `'labor_units'` | `'duration'` | `'auto'`

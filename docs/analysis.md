@@ -113,6 +113,17 @@ $result = $analyzer->resourceUtilization('week', 8.0, weekStartsOn: 6); // weeks
 
 Supported periods: `'day'`, `'week'`, `'month'`.
 
+`over_allocations` has one entry per resource (or role bucket) per calendar day on which the hours of all its
+assignments add up to more than the daily limit (`resource_overallocation_daily_limit`, default 8):
+
+```php
+['resource' => 'John', 'date' => '2024-01-01', 'qty_per_day' => 12.0, 'activity' => 'Build',
+ 'activities' => [['activity' => 'Build', 'qty_per_day' => 6.0], ['activity' => 'Paint', 'qty_per_day' => 6.0]]]
+```
+
+`qty_per_day` is the day's total and `activities` lists each contributing activity with its hours. `activity`
+repeats the first contributor and is kept for code written before 2.5.0.
+
 `weekStartsOn` (optional, `'week'` period only) is Carbon's day number, `0` (Sunday) to `6` (Saturday). It groups
 each `'week'` key (`'Y-m-d (Week)'`) on the given day. Left `null` (the default), weeks start on the Carbon locale's
 first day (Monday for `en`) — unchanged from before 2.3.0. `'day'` and `'month'` ignore it.

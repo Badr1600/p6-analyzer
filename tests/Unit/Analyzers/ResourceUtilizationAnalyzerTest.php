@@ -142,7 +142,97 @@ test('over_allocation entry has required keys', function () {
 
     $entry = (new ResourceUtilizationAnalyzer)->calculate($data, 'day', 8.0)['over_allocations'][0];
 
-    expect($entry)->toHaveKeys(['resource', 'date', 'activity', 'qty_per_day']);
+    expect($entry)->toHaveKeys(['resource', 'date', 'activity', 'qty_per_day', 'activities']);
+});
+
+test('concurrent assignments are summed per resource per day', function () {
+    $data = makeResourceData(
+        tasks: [
+            ['task_id' => 'T1', 'status_code' => 'TK_Active', 'task_name' => 'Build', 'target_start_date' => '2024-01-01 08:00:00', 'target_end_date' => '2024-01-01 17:00:00'],
+            ['task_id' => 'T2', 'status_code' => 'TK_Active', 'task_name' => 'Paint', 'target_start_date' => '2024-01-01 08:00:00', 'target_end_date' => '2024-01-01 17:00:00'],
+        ],
+        taskrsrc: [
+            ['task_id' => 'T1', 'rsrc_id' => 'R1', 'target_qty' => '6'],
+            ['task_id' => 'T2', 'rsrc_id' => 'R1', 'target_qty' => '6'],
+        ],
+        rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John']],
+    );
+
+    $over = (new ResourceUtilizationAnalyzer)->calculate($data, 'day', 8.0)['over_allocations'];
+
+    expect($over)->toHaveCount(1)
+        ->and($over[0])->toMatchArray(['resource' => 'John', 'date' => '2024-01-01', 'activity' => 'Build', 'qty_per_day' => 12.0])
+        ->and($over[0]['activities'])->toBe([
+            ['activity' => 'Build', 'qty_per_day' => 6.0],
+            ['activity' => 'Paint', 'qty_per_day' => 6.0],
+        ]);
+});
+
+test('a resource-day over the limit is reported once however many lines contribute', function () {
+    $tasks = [];
+    $lines = [];
+    foreach (['T1', 'T2', 'T3'] as $id) {
+        $tasks[] = ['task_id' => $id, 'status_code' => 'TK_Active', 'task_name' => $id, 'target_start_date' => '2024-01-01 08:00:00', 'target_end_date' => '2024-01-01 17:00:00'];
+        $lines[] = ['task_id' => $id, 'rsrc_id' => 'R1', 'target_qty' => '9'];
+    }
+    $data = makeResourceData(tasks: $tasks, taskrsrc: $lines, rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John']]);
+
+    $over = (new ResourceUtilizationAnalyzer)->calculate($data, 'day', 8.0)['over_allocations'];
+
+    expect($over)->toHaveCount(1)
+        ->and($over[0]['qty_per_day'])->toBe(27.0)
+        ->and($over[0]['activities'])->toHaveCount(3);
+});
+
+test('assignments of different resources are not summed together', function () {
+    $data = makeResourceData(
+        tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'task_name' => 'Build', 'target_start_date' => '2024-01-01 08:00:00', 'target_end_date' => '2024-01-01 17:00:00']],
+        taskrsrc: [
+            ['task_id' => 'T1', 'rsrc_id' => 'R1', 'target_qty' => '6'],
+            ['task_id' => 'T1', 'rsrc_id' => 'R2', 'target_qty' => '6'],
+        ],
+        rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John'], ['rsrc_id' => 'R2', 'rsrc_name' => 'Mary']],
+    );
+
+    expect((new ResourceUtilizationAnalyzer)->calculate($data, 'day', 8.0)['over_allocations'])->toBeEmpty();
+});
+
+test('role-only lines are summed per role bucket per day', function () {
+    $data = makeRoleData([
+        ['task_id' => 'T1', 'rsrc_id' => '', 'role_id' => '12', 'target_qty' => '10'],
+        ['task_id' => 'T1', 'rsrc_id' => '', 'role_id' => '12', 'target_qty' => '10'],
+    ]);
+
+    $over = (new ResourceUtilizationAnalyzer)->calculate($data, 'day', 8.0, null, [12 => 'Planner'])['over_allocations'];
+
+    expect($over)->toHaveCount(2)
+        ->and($over[0])->toMatchArray(['resource' => 'role:12', 'kind' => 'role', 'label' => 'Planner', 'qty_per_day' => 10.0]);
+});
+
+test('a total that only exceeds the limit through floating-point error is not flagged', function () {
+    $data = makeResourceData(
+        tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'task_name' => 'Build', 'target_start_date' => '2024-01-01 08:00:00', 'target_end_date' => '2024-01-01 17:00:00']],
+        taskrsrc: [
+            ['task_id' => 'T1', 'rsrc_id' => 'R1', 'target_qty' => '0.1'],
+            ['task_id' => 'T1', 'rsrc_id' => 'R1', 'target_qty' => '0.2'],
+        ],
+        rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John']],
+    );
+
+    expect((new ResourceUtilizationAnalyzer)->calculate($data, 'day', 0.3)['over_allocations'])->toBeEmpty();
+});
+
+test('an assignment that ends earlier in the day than it started still covers its last day', function () {
+    $data = makeResourceData(
+        tasks: [['task_id' => 'T1', 'status_code' => 'TK_Active', 'task_name' => 'Build', 'target_start_date' => '2024-01-01 13:00:00', 'target_end_date' => '2024-01-03 12:00:00']],
+        taskrsrc: [['task_id' => 'T1', 'rsrc_id' => 'R1', 'target_qty' => '24']],
+        rsrc: [['rsrc_id' => 'R1', 'rsrc_name' => 'John']],
+    );
+
+    $daily = (new ResourceUtilizationAnalyzer)->calculate($data, 'day', 8.0)['utilization']['John'];
+
+    expect($daily)->toHaveCount(3)
+        ->and(array_sum($daily))->toBe(24.0);
 });
 
 // ---------------------------------------------------------------

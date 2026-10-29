@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Resource over-allocation is now judged per resource per day, as the docs and config describe. The hours of all
+  of a resource's (or role's) assignment lines on a day are summed and compared with the daily limit. Before,
+  each line was compared on its own: two overlapping 6 h assignments (12 h in a day) were never flagged, and
+  several lines over the limit on the same day produced one entry each.
+- Utilization dropped the last day of an assignment that ends earlier in the day than it started.
+
+### Changed
+- Each `over_allocations` entry is now one resource-day: `qty_per_day` is the day's total and the new
+  `activities` key lists every contributing activity with its hours. `activity` is kept and holds the first
+  contributor.
+
 ## [2.4.2] - 2026-10-28
 
 ### Added

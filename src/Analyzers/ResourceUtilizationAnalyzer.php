@@ -18,7 +18,11 @@ class ResourceUtilizationAnalyzer
      *                                  start on the Carbon locale's first day (Monday for 'en') — the pre-2.3.0 behaviour, unchanged.
      * @param  array<int|string, string>  $roleLabels  Display labels for role-only lines, keyed by role_id. A role without
      *                                                 an entry is labelled with ROLES.role_short_name, then 'Role {id}'.
-     * @return array{utilization: array, over_allocations: array, total_resources_analyzed: int, roles: array<string, array{kind: string, role_id: string, label: string}>}
+     * @return array{utilization: array, over_allocations: list<array{resource: string, date: string, activity: string, qty_per_day: float, activities: list<array{activity: string, qty_per_day: float}>}>, total_resources_analyzed: int, roles: array<string, array{kind: string, role_id: string, label: string}>}
+     *
+     * An over-allocation is a resource (or role bucket) whose hours on one calendar day, summed across all of its
+     * assignment lines, exceed the daily limit. Each entry is one resource-day: 'qty_per_day' is that total and
+     * 'activities' lists what contributed. 'activity' repeats the first contributor for callers written before 2.5.0.
      *
      * A TASKRSRC line with no rsrc_id but a role_id is counted by role: it lands in a bucket keyed 'role:{role_id}'
      * (which cannot collide with a resource name), needs no RSRC row, and is described in the 'roles' map.
@@ -37,7 +41,7 @@ class ResourceUtilizationAnalyzer
         $roles = $data->getTable('ROLES')->keyBy('role_id');
 
         $utilization = [];
-        $overAllocations = [];
+        $dailyLoad = [];
         $roleBuckets = [];
 
         foreach ($assignments as $assignment) {
@@ -96,8 +100,11 @@ class ResourceUtilizationAnalyzer
                 ];
             }
 
-            $current = $start->copy();
-            while ($current->lessThanOrEqualTo($end)) {
+            // Walk calendar days, not timestamps: an assignment ending earlier in the day than it
+            // started must still cover its last day, matching the $days divisor above.
+            $current = $start->copy()->startOfDay();
+            $lastDay = $end->copy()->startOfDay();
+            while ($current->lessThanOrEqualTo($lastDay)) {
                 $periodKey = $this->getPeriodKey($current, $period, $weekStartsOn);
 
                 if (! isset($utilization[$rsrcName])) {
@@ -110,16 +117,42 @@ class ResourceUtilizationAnalyzer
 
                 $utilization[$rsrcName][$periodKey] += $qtyPerDay;
 
-                if ($qtyPerDay > $dailyLimit) {
-                    $overAllocations[] = [
-                        'resource' => $rsrcName,
-                        'date' => $current->toDateString(),
-                        'activity' => $activity->name,
-                        'qty_per_day' => round($qtyPerDay, 2),
-                    ] + ($isRoleLine ? ['kind' => 'role', 'label' => $roleBuckets[$rsrcName]['label']] : []);
-                }
+                $date = $current->toDateString();
+                $dailyLoad[$rsrcName][$date]['qty'] = ($dailyLoad[$rsrcName][$date]['qty'] ?? 0.0) + $qtyPerDay;
+                $dailyLoad[$rsrcName][$date]['activities'][$activity->id] = [
+                    'activity' => $activity->name,
+                    'qty_per_day' => ($dailyLoad[$rsrcName][$date]['activities'][$activity->id]['qty_per_day'] ?? 0.0) + $qtyPerDay,
+                ];
 
                 $current->addDay();
+            }
+        }
+
+        $overAllocations = [];
+
+        foreach ($dailyLoad as $rsrcName => $days) {
+            ksort($days);
+
+            foreach ($days as $date => $load) {
+                // Compare the rounded total that is reported, so 0.1 + 0.2 never exceeds a 0.3 limit.
+                $total = round($load['qty'], 2);
+
+                if ($total <= $dailyLimit) {
+                    continue;
+                }
+
+                $contributors = array_values(array_map(
+                    fn (array $line): array => ['activity' => $line['activity'], 'qty_per_day' => round($line['qty_per_day'], 2)],
+                    $load['activities'],
+                ));
+
+                $overAllocations[] = [
+                    'resource' => $rsrcName,
+                    'date' => $date,
+                    'activity' => $contributors[0]['activity'],
+                    'qty_per_day' => $total,
+                    'activities' => $contributors,
+                ] + (isset($roleBuckets[$rsrcName]) ? ['kind' => 'role', 'label' => $roleBuckets[$rsrcName]['label']] : []);
             }
         }
 
