@@ -48,7 +48,6 @@ function makeDcmaPointActivity(array $overrides = [], array $raw = []): Activity
 {
     return ActivityData::fromModelOrArray(array_merge([
         'id' => $raw['task_id'] ?? '1',
-        'activity_id' => null,
         'task_code' => 'A1',
         'task_name' => 'Task',
         'status_code' => 'TK_NotStart',

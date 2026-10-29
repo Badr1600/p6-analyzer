@@ -11,9 +11,7 @@ use TeckFuture\P6Analyzer\Support\Config;
  * Calculates schedule variance (slippage) between two sets of activities.
  *
  * Activities are matched by task_code — the stable business identifier that
- * survives re-imports. (Matching previously used activity_id, which imported
- * XER data never carries: keyBy(null) collapsed the whole baseline onto one
- * arbitrary row and every activity was compared against it.)
+ * survives re-imports.
  */
 class ScheduleVarianceCalculator
 {

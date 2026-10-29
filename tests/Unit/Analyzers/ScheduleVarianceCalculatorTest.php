@@ -6,11 +6,10 @@ use TeckFuture\P6Analyzer\IO\XerParser;
 
 covers(ScheduleVarianceCalculator::class);
 
-function makeSvcActivity(string $activityId, string $endDate, string $id = '1'): ActivityData
+function makeSvcActivity(string $endDate, string $id = '1'): ActivityData
 {
     return ActivityData::fromModelOrArray([
         'id' => $id,
-        'activity_id' => $activityId,
         'task_code' => "A{$id}",
         'task_name' => "Task {$id}",
         'status_code' => 'TK_Active',
@@ -38,7 +37,7 @@ test('empty collections return zero counts', function () {
 // ---------------------------------------------------------------
 
 test('total_activities_compared counts matched pairs, not the raw current set', function () {
-    $current = collect([makeSvcActivity('A1', '2024-06-01', '1'), makeSvcActivity('A2', '2024-06-01', '2')]);
+    $current = collect([makeSvcActivity('2024-06-01', '1'), makeSvcActivity('2024-06-01', '2')]);
     $baseline = collect();
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
@@ -54,8 +53,8 @@ test('total_activities_compared counts matched pairs, not the raw current set', 
 // ---------------------------------------------------------------
 
 test('current activity with no matching baseline task_code is skipped', function () {
-    $current = collect([makeSvcActivity('ORPHAN', '2024-06-15', '1')]);
-    $baseline = collect([makeSvcActivity('OTHER', '2024-06-01', '2')]); // task_code A2 ≠ A1
+    $current = collect([makeSvcActivity('2024-06-15', '1')]);
+    $baseline = collect([makeSvcActivity('2024-06-01', '2')]); // task_code A2 ≠ A1
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
 
@@ -64,13 +63,12 @@ test('current activity with no matching baseline task_code is skipped', function
 });
 
 // ---------------------------------------------------------------
-// Matching is by task_code — activity_id is null for imported XER data
+// Matching is by task_code, the identifier imported XER data carries
 // ---------------------------------------------------------------
 
-test('activities match by task_code even when activity_id is null everywhere', function () {
+test('activities match by task_code, each against its own baseline row', function () {
     $make = fn (string $taskCode, string $endDate) => ActivityData::fromModelOrArray([
         'id' => $taskCode,
-        'activity_id' => null,
         'task_code' => $taskCode,
         'task_name' => "Task {$taskCode}",
         'status_code' => 'TK_Active',
@@ -95,7 +93,7 @@ test('activities match by task_code even when activity_id is null everywhere', f
 
 test('slipping rows carry signed start variance, status and total float', function () {
     $current = ActivityData::fromModelOrArray([
-        'id' => '1', 'activity_id' => null, 'task_code' => 'A1',
+        'id' => '1', 'task_code' => 'A1',
         'task_name' => 'T', 'status_code' => 'TK_Active', 'target_drtn_hr_cnt' => '40',
         'raw_data' => [
             'status_code' => 'TK_Active',
@@ -105,7 +103,7 @@ test('slipping rows carry signed start variance, status and total float', functi
         ],
     ]);
     $baseline = ActivityData::fromModelOrArray([
-        'id' => '1', 'activity_id' => null, 'task_code' => 'A1',
+        'id' => '1', 'task_code' => 'A1',
         'task_name' => 'T', 'status_code' => 'TK_Active', 'target_drtn_hr_cnt' => '40',
         'raw_data' => [
             'target_start_date' => '2024-05-30',
@@ -129,12 +127,12 @@ test('slipping rows carry signed start variance, status and total float', functi
 
 test('min slip threshold filters small slips out', function () {
     $current = collect([
-        makeSvcActivity('A1', '2024-06-03', '1'),  // 2 days
-        makeSvcActivity('A2', '2024-06-11', '2'),  // 10 days
+        makeSvcActivity('2024-06-03', '1'),  // 2 days
+        makeSvcActivity('2024-06-11', '2'),  // 10 days
     ]);
     $baseline = collect([
-        makeSvcActivity('A1', '2024-06-01', '1'),
-        makeSvcActivity('A2', '2024-06-01', '2'),
+        makeSvcActivity('2024-06-01', '1'),
+        makeSvcActivity('2024-06-01', '2'),
     ]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline, 5.0);
@@ -149,7 +147,7 @@ test('min slip threshold filters small slips out', function () {
 // ---------------------------------------------------------------
 
 test('activity with same finish as the baseline does not slip', function () {
-    $activities = collect([makeSvcActivity('ACT1', '2024-06-01')]);
+    $activities = collect([makeSvcActivity('2024-06-01')]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($activities, $activities);
 
@@ -157,8 +155,8 @@ test('activity with same finish as the baseline does not slip', function () {
 });
 
 test('activity finishing earlier than the baseline does not slip', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-05-01')]);     // earlier
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01')]); // later
+    $current = collect([makeSvcActivity('2024-05-01')]);  // earlier
+    $baseline = collect([makeSvcActivity('2024-06-01')]); // later
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
 
@@ -166,8 +164,8 @@ test('activity finishing earlier than the baseline does not slip', function () {
 });
 
 test('activity finishing later than the baseline is slipping', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-06-15')]);     // 14 days late
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01')]);
+    $current = collect([makeSvcActivity('2024-06-15')]);  // 14 days late
+    $baseline = collect([makeSvcActivity('2024-06-01')]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
 
@@ -180,8 +178,8 @@ test('activity finishing later than the baseline is slipping', function () {
 // ---------------------------------------------------------------
 
 test('variance_days is exactly 7 for one week slip', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-06-08')]);     // 7 days late
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01')]);
+    $current = collect([makeSvcActivity('2024-06-08')]);  // 7 days late
+    $baseline = collect([makeSvcActivity('2024-06-01')]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
 
@@ -190,8 +188,8 @@ test('variance_days is exactly 7 for one week slip', function () {
 });
 
 test('variance_days is exactly 30 for one month slip', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-07-01')]);     // 30 days late
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01')]);
+    $current = collect([makeSvcActivity('2024-07-01')]);  // 30 days late
+    $baseline = collect([makeSvcActivity('2024-06-01')]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
 
@@ -203,8 +201,8 @@ test('variance_days is exactly 30 for one month slip', function () {
 // ---------------------------------------------------------------
 
 test('a finish moved a few hours within the same day is not a slip', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-06-01 20:00')]);     // 12 h later, same date
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01 08:00')]);
+    $current = collect([makeSvcActivity('2024-06-01 20:00')]);  // 12 h later, same date
+    $baseline = collect([makeSvcActivity('2024-06-01 08:00')]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
 
@@ -214,8 +212,8 @@ test('a finish moved a few hours within the same day is not a slip', function ()
 });
 
 test('a finish on the next calendar day is a 1 day slip even when less than 24 hours later', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-06-02 06:00')]);     // 10 h later, next date
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01 20:00')]);
+    $current = collect([makeSvcActivity('2024-06-02 06:00')]);  // 10 h later, next date
+    $baseline = collect([makeSvcActivity('2024-06-01 20:00')]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
 
@@ -224,8 +222,8 @@ test('a finish on the next calendar day is a 1 day slip even when less than 24 h
 });
 
 test('a slip of a day and a half is 1 day, not rounded up to 2', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-06-02 20:00')]);     // 36 h later, next date
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01 08:00')]);
+    $current = collect([makeSvcActivity('2024-06-02 20:00')]);  // 36 h later, next date
+    $baseline = collect([makeSvcActivity('2024-06-01 08:00')]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
 
@@ -236,7 +234,7 @@ test('a slip of a day and a half is 1 day, not rounded up to 2', function () {
 test('start variance is a signed count of calendar days', function (string $baselineStart, string $currentStart, int $expectedDays) {
     // The finish slips by 14 days so the activity is listed; only the start differs between cases.
     $make = fn (string $start, string $finish) => ActivityData::fromModelOrArray([
-        'id' => '1', 'activity_id' => null, 'task_code' => 'A1',
+        'id' => '1', 'task_code' => 'A1',
         'task_name' => 'T', 'status_code' => 'TK_Active', 'target_drtn_hr_cnt' => '40',
         'raw_data' => ['target_start_date' => $start, 'target_end_date' => $finish],
     ]);
@@ -256,8 +254,8 @@ test('start variance is a signed count of calendar days', function (string $base
 ]);
 
 test('the dates of the schedules being compared are left untouched', function () {
-    $current = makeSvcActivity('ACT1', '2024-06-15 17:30');
-    $baseline = makeSvcActivity('ACT1', '2024-06-01 08:15');
+    $current = makeSvcActivity('2024-06-15 17:30');
+    $baseline = makeSvcActivity('2024-06-01 08:15');
 
     (new ScheduleVarianceCalculator)->calculate(collect([$current]), collect([$baseline]));
 
@@ -271,14 +269,14 @@ test('the dates of the schedules being compared are left untouched', function ()
 
 test('max_variance_days tracks the worst slip', function () {
     $current = collect([
-        makeSvcActivity('A1', '2024-06-08', '1'),  // 7 days late
-        makeSvcActivity('A2', '2024-06-22', '2'),  // 21 days late
-        makeSvcActivity('A3', '2024-06-05', '3'),  // 4 days late
+        makeSvcActivity('2024-06-08', '1'),  // 7 days late
+        makeSvcActivity('2024-06-22', '2'),  // 21 days late
+        makeSvcActivity('2024-06-05', '3'),  // 4 days late
     ]);
     $baseline = collect([
-        makeSvcActivity('A1', '2024-06-01', '1'),
-        makeSvcActivity('A2', '2024-06-01', '2'),
-        makeSvcActivity('A3', '2024-06-01', '3'),
+        makeSvcActivity('2024-06-01', '1'),
+        makeSvcActivity('2024-06-01', '2'),
+        makeSvcActivity('2024-06-01', '3'),
     ]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
@@ -292,7 +290,7 @@ test('max_variance_days tracks the worst slip', function () {
 // ---------------------------------------------------------------
 
 test('average_variance_days is 0 when no slipping activities', function () {
-    $activities = collect([makeSvcActivity('ACT1', '2024-06-01')]);
+    $activities = collect([makeSvcActivity('2024-06-01')]);
 
     expect((new ScheduleVarianceCalculator)->calculate($activities, $activities)['average_variance_days'])->toEqual(0);
 });
@@ -300,12 +298,12 @@ test('average_variance_days is 0 when no slipping activities', function () {
 test('average_variance_days is correctly computed over multiple slips', function () {
     // 7 + 21 = 28 total, / 2 = 14 average
     $current = collect([
-        makeSvcActivity('A1', '2024-06-08', '1'),  // 7 days
-        makeSvcActivity('A2', '2024-06-22', '2'),  // 21 days
+        makeSvcActivity('2024-06-08', '1'),  // 7 days
+        makeSvcActivity('2024-06-22', '2'),  // 21 days
     ]);
     $baseline = collect([
-        makeSvcActivity('A1', '2024-06-01', '1'),
-        makeSvcActivity('A2', '2024-06-01', '2'),
+        makeSvcActivity('2024-06-01', '1'),
+        makeSvcActivity('2024-06-01', '2'),
     ]);
 
     $result = (new ScheduleVarianceCalculator)->calculate($current, $baseline);
@@ -318,8 +316,8 @@ test('average_variance_days is correctly computed over multiple slips', function
 // ---------------------------------------------------------------
 
 test('slipping activity entry has required keys', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-06-15', '42')]);
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01', '42')]);
+    $current = collect([makeSvcActivity('2024-06-15', '42')]);
+    $baseline = collect([makeSvcActivity('2024-06-01', '42')]);
 
     $entry = (new ScheduleVarianceCalculator)->calculate($current, $baseline)['slipping_activities'][0];
 
@@ -329,8 +327,8 @@ test('slipping activity entry has required keys', function () {
 });
 
 test('slipping activity entry names its dates baseline_* and current_*', function () {
-    $current = collect([makeSvcActivity('ACT1', '2024-06-15', '42')]);
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01', '42')]);
+    $current = collect([makeSvcActivity('2024-06-15', '42')]);
+    $baseline = collect([makeSvcActivity('2024-06-01', '42')]);
 
     $entry = (new ScheduleVarianceCalculator)->calculate($current, $baseline)['slipping_activities'][0];
 
@@ -347,11 +345,11 @@ test('slipping activity entry names its dates baseline_* and current_*', functio
 
 test('activity with a null current finish does not slip', function () {
     $current = ActivityData::fromModelOrArray([
-        'id' => '1', 'activity_id' => 'ACT1', 'task_code' => 'A1',
+        'id' => '1', 'task_code' => 'A1',
         'task_name' => 'T', 'status_code' => 'TK_Active', 'target_drtn_hr_cnt' => '40',
         'raw_data' => [], // no target_end_date
     ]);
-    $baseline = collect([makeSvcActivity('ACT1', '2024-06-01')]);
+    $baseline = collect([makeSvcActivity('2024-06-01')]);
 
     $result = (new ScheduleVarianceCalculator)->calculate(collect([$current]), $baseline);
 
