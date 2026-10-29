@@ -59,23 +59,40 @@ class ScheduleUpdater
     /**
      * Add a new activity to the TASK table.
      *
-     * @param  array<string, string>  $activityData  Must contain a `task_id` key.
+     * The new row gets the columns of the rows already in the table: a key that is not one of
+     * them is ignored and a column left out is empty. A document with no TASK table, or one
+     * without rows, gets the table created with the keys of `$activityData` as its columns.
      *
-     * @throws XerParseException If task_id is missing.
+     * @param  array<string, string>  $activityData  Must contain a non-empty `task_id` key; `'0'` is valid.
+     *
+     * @throws XerParseException If task_id is missing or empty, or an activity with that task_id exists.
      */
     public function addActivity(ParsedXerData $data, array $activityData): void
     {
-        if (empty($activityData['task_id'])) {
+        $taskId = (string) ($activityData['task_id'] ?? '');
+
+        if ($taskId === '') {
             throw new XerParseException('New activity must have a task_id');
+        }
+
+        if (! $data->tables->has('TASK')) {
+            $data->tables->put('TASK', collect());
         }
 
         $activities = $data->getTable('TASK');
 
-        $firstRow = $activities->first() ?? [];
-        $headers = array_keys($firstRow);
+        if ($activities->contains(fn (array $row) => (string) ($row['task_id'] ?? '') === $taskId)) {
+            throw new XerParseException("An activity with task_id {$taskId} already exists");
+        }
+
+        if ($activities->isEmpty()) {
+            $activities->push($activityData);
+
+            return;
+        }
 
         $newRow = [];
-        foreach ($headers as $header) {
+        foreach (array_keys($activities->first()) as $header) {
             $newRow[$header] = $activityData[$header] ?? '';
         }
 

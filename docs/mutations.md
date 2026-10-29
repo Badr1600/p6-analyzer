@@ -17,6 +17,9 @@ $updated = $updater->updateActivity($data, '12345', [
 // $updated === true if found, false otherwise
 ```
 
+A key that is not yet a column of the `TASK` table is added to that activity's row. `XerExporter` writes it as a
+column for every row, with an empty value for the other activities.
+
 ### Batch Update
 
 ```php
@@ -36,7 +39,27 @@ $updater->addActivity($data, [
     'task_name' => 'New Activity',
     'status_code' => 'TK_NotStart',
 ]);
-// Throws XerParseException if task_id is missing
+```
+
+The rules:
+
+- **`task_id` is required.** A missing or empty `task_id` throws `XerParseException`. Any other value is valid,
+  including `'0'`.
+- **`task_id` must be new.** If the `TASK` table already has an activity with that `task_id`, `addActivity()`
+  throws `XerParseException` and adds nothing. Catch `XerParseException` to handle both problems.
+- **The new row gets the existing columns.** It has the columns of the rows already in the `TASK` table: a key
+  that is not one of them is ignored, and a column you leave out is an empty string.
+- **The `TASK` table is created when needed.** If the data has no `TASK` table, or the table has no rows,
+  `addActivity()` creates it with the row you pass, and that row's keys become its columns.
+
+```php
+use TeckFuture\P6Analyzer\Exceptions\XerParseException;
+
+try {
+    $updater->addActivity($data, ['task_id' => '99999', 'task_name' => 'New Activity']);
+} catch (XerParseException $e) {
+    // "New activity must have a task_id" or "An activity with task_id 99999 already exists"
+}
 ```
 
 ### Via the Manager
