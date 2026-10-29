@@ -171,16 +171,16 @@ class P6AnalyzerManager
     /**
      * Run schedule variance (slippage) analysis.
      *
-     * @param  ParsedXerData  $masterData  Baseline schedule to compare against.
+     * @param  ParsedXerData  $baselineData  Baseline schedule to compare against.
      * @return array{total_activities_compared: int, current_activities_count: int, matched_count: int, unmatched_count: int, slipping_activities_count: int, average_variance_days: float, max_variance_days: int, slipping_activities: array<int, array<string, mixed>>}
      */
-    public function scheduleVariance(ParsedXerData $masterData): array
+    public function scheduleVariance(ParsedXerData $baselineData): array
     {
         $this->ensureLoaded();
 
         return (new ScheduleVarianceCalculator)->calculate(
             $this->data->getActivities(),
-            $masterData->getActivities(),
+            $baselineData->getActivities(),
         );
     }
 

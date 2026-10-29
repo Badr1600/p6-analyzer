@@ -157,14 +157,14 @@ the number of current activities with no match in the baseline (`current_activit
 activity slips when its finish is later than its baseline finish by more than `min_slip_days` days (default 0).
 `average_variance_days` and `max_variance_days` cover the slipping activities only.
 
-`master_*` keys hold the baseline dates and `workbench_*` keys the current ones. The variances are whole calendar days,
+`baseline_*` keys hold the baseline dates and `current_*` keys the current ones. The variances are whole calendar days,
 positive when the current date is later and negative when it is earlier:
 
 ```php
 foreach ($result['slipping_activities'] as $activity) {
     // ['id', 'task_code', 'name', 'status', 'total_float_hr',
-    //  'master_start', 'workbench_start', 'start_variance_days',
-    //  'master_finish', 'workbench_finish', 'variance_days']
+    //  'baseline_start', 'current_start', 'start_variance_days',
+    //  'baseline_finish', 'current_finish', 'variance_days']
 }
 ```
 

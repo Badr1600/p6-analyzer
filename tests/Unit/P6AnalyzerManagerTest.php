@@ -222,6 +222,14 @@ test('scheduleVariance() returns zero slippage when compared to self', function 
         ->and($result['slipping_activities_count'])->toBe(0);
 });
 
+test('scheduleVariance() takes the baseline schedule as $baselineData', function () {
+    $manager = loadedManager();
+    $result = $manager->scheduleVariance(baselineData: $manager->getData());
+
+    expect($result['total_activities_compared'])->toBeGreaterThan(0)
+        ->and($result['slipping_activities_count'])->toBe(0);
+});
+
 test('scheduleHealth() returns required health keys', function () {
     $result = loadedManager()->scheduleHealth('2024-01-15');
 
