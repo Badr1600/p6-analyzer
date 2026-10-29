@@ -5,6 +5,7 @@ namespace TeckFuture\P6Analyzer\Analyzers;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * Calculates schedule variance (slippage) between two sets of activities.
@@ -40,7 +41,7 @@ class ScheduleVarianceCalculator
     ): array {
         $currentActivities = is_array($currentActivities) ? collect($currentActivities) : $currentActivities;
         $baselineActivities = is_array($baselineActivities) ? collect($baselineActivities) : $baselineActivities;
-        $threshold = $minSlipDays ?? (float) $this->configValue('min_slip_days', 0);
+        $threshold = $minSlipDays ?? (float) Config::get('min_slip_days', 0);
 
         $baselineByCode = $baselineActivities
             ->filter(fn (ActivityData $a) => $a->task_code !== null && $a->task_code !== '')
@@ -114,14 +115,5 @@ class ScheduleVarianceCalculator
         $days = (int) round(abs($from->diffInDays($to)));
 
         return $to->lessThan($from) ? -$days : $days;
-    }
-
-    private function configValue(string $key, mixed $default): mixed
-    {
-        if (function_exists('config')) {
-            return config("p6-analyzer.{$key}", $default);
-        }
-
-        return $default;
     }
 }

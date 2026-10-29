@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
 use TeckFuture\P6Analyzer\DTOs\RelationshipData;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * Performs the DCMA 14-point schedule assessment.
@@ -48,9 +49,9 @@ class DCMA14PointChecker
         $hardConstraints = 0;
         $missedActivities = 0;
 
-        $highFloatThreshold = $this->configValue('high_float_threshold', 352);
-        $highDurationThreshold = $this->configValue('high_duration_threshold', 352);
-        $penalties = $this->configValue('dcma_penalty_weights', [
+        $highFloatThreshold = Config::get('high_float_threshold', 352);
+        $highDurationThreshold = Config::get('high_duration_threshold', 352);
+        $penalties = Config::get('dcma_penalty_weights', [
             'high_float' => 1,
             'negative_float' => 2,
             'high_duration' => 1,
@@ -279,14 +280,5 @@ class DCMA14PointChecker
         $metrics['overall_score'] = max(0, min(100, round(100 - $penalty, 2)));
 
         return $metrics;
-    }
-
-    private function configValue(string $key, mixed $default): mixed
-    {
-        if (function_exists('config')) {
-            return config("p6-analyzer.{$key}", $default);
-        }
-
-        return $default;
     }
 }

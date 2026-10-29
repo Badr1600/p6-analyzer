@@ -4,6 +4,7 @@ namespace TeckFuture\P6Analyzer\Analyzers;
 
 use Illuminate\Support\Collection;
 use TeckFuture\P6Analyzer\DTOs\ActivityData;
+use TeckFuture\P6Analyzer\Support\Config;
 
 /**
  * Identifies critical path activities based on total float.
@@ -25,7 +26,7 @@ class CriticalPathCalculator
     public function calculate(Collection|array $activities, ?float $criticalFloatThreshold = null): array
     {
         $activities = is_array($activities) ? collect($activities) : $activities;
-        $threshold = $criticalFloatThreshold ?? $this->configValue('critical_float_threshold', 0);
+        $threshold = $criticalFloatThreshold ?? Config::get('critical_float_threshold', 0);
         $criticalActivities = collect();
         $totalActivities = $activities->count();
 
@@ -48,17 +49,5 @@ class CriticalPathCalculator
             'critical_path_percentage' => $totalActivities > 0 ? round(($criticalActivities->count() / $totalActivities) * 100, 2) : 0,
             'critical_activities' => $criticalActivities->values()->toArray(),
         ];
-    }
-
-    /**
-     * Read a config value with a fallback for non-Laravel environments.
-     */
-    private function configValue(string $key, mixed $default): mixed
-    {
-        if (function_exists('config')) {
-            return config("p6-analyzer.{$key}", $default);
-        }
-
-        return $default;
     }
 }
