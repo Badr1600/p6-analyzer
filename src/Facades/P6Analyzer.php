@@ -35,6 +35,12 @@ use TeckFuture\P6Analyzer\P6AnalyzerManager;
  */
 class P6Analyzer extends Facade
 {
+    /**
+     * The manager holds the XER data it was loaded with, so the facade must not
+     * keep one around: every static call resolves a new manager from the container.
+     */
+    protected static $cached = false;
+
     protected static function getFacadeAccessor(): string
     {
         return P6AnalyzerManager::class;

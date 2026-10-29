@@ -82,3 +82,36 @@ test('the facade documents each manager method with its exact parameters, defaul
 
     expect(facadeDocumentedSignatures()->sortKeys()->all())->toBe($managerSignatures->all());
 });
+
+// ---------------------------------------------------------------
+// A fresh manager for every call
+// ---------------------------------------------------------------
+
+test('a facade call without load() does not see data loaded by an earlier call', function () {
+    // One test body on purpose: Testbench clears the resolved facade instances between tests.
+    expect(P6Analyzer::load($this->fixturePath())->criticalPath())->toHaveKey('total_activities');
+
+    P6Analyzer::criticalPath();
+})->throws(RuntimeException::class, 'No XER data loaded');
+
+test('two facade chains do not share loaded data', function () {
+    $first = P6Analyzer::load($this->fixturePath());
+    $second = P6Analyzer::parse(file_get_contents($this->fixturePath()));
+
+    expect($second)->not->toBe($first)
+        ->and($second->getData())->not->toBe($first->getData());
+});
+
+test('the container resolves a new manager every time', function () {
+    expect(app(P6AnalyzerManager::class))->not->toBe(app(P6AnalyzerManager::class))
+        ->and(app('p6-analyzer'))->not->toBe(app('p6-analyzer'))
+        ->and(app('p6-analyzer'))->toBeInstanceOf(P6AnalyzerManager::class);
+});
+
+test('a manager swapped into the facade is still the one it calls', function () {
+    $manager = (new P6AnalyzerManager)->load($this->fixturePath());
+
+    P6Analyzer::swap($manager);
+
+    expect(P6Analyzer::getData())->toBe($manager->getData());
+});
