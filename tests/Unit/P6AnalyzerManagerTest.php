@@ -164,7 +164,7 @@ test('dcma14Point() assesses the logic, lead, lag and relationship-type points',
     // The fixture has 555 relationships: 18 with negative lag, 29 with positive lag, 455 Finish-to-Start
     expect($points['missing_logic']['assessable'])->toBeTrue()
         ->and($points['missing_logic']['count'])->toBe(6)
-        ->and($points['missing_logic']['percentage'])->toBe(1.45)
+        ->and($points['missing_logic']['percentage'])->toBe(1.49)
         ->and($points['missing_logic']['passed'])->toBeTrue()
         ->and($points['leads']['count'])->toBe(18)
         ->and($points['leads']['passed'])->toBeFalse()

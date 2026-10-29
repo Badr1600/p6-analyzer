@@ -19,6 +19,22 @@ use TeckFuture\P6Analyzer\DTOs\RelationshipData;
 final class MissingLogic
 {
     /**
+     * The activities the rule examines: those that are not complete, except
+     * WBS summaries. Milestones are in, because they are checked on one side.
+     * It is the population DCMA point 1 measures its percentage against.
+     *
+     * @param  Collection<int, ActivityData>  $activities
+     * @return Collection<int, ActivityData>
+     */
+    public static function inScope(Collection $activities): Collection
+    {
+        return $activities
+            ->filter(fn (ActivityData $activity) => $activity->status_code !== 'Completed'
+                && $activity->task_type !== ActivityData::WBS_SUMMARY_TASK_TYPE)
+            ->values();
+    }
+
+    /**
      * @param  Collection<int, ActivityData>  $activities
      * @param  Collection<int, RelationshipData>  $relationships
      * @return Collection<int, ActivityData> The activities missing logic, in the order they were given.
@@ -40,12 +56,8 @@ final class MissingLogic
             }
         }
 
-        return $activities
+        return self::inScope($activities)
             ->filter(function (ActivityData $activity) use ($hasPredecessor, $hasSuccessor) {
-                if (! self::isChecked($activity)) {
-                    return false;
-                }
-
                 // Nothing comes before a start milestone, or after a finish milestone.
                 $needsPredecessor = $activity->task_type !== ActivityData::START_MILESTONE_TASK_TYPE;
                 $needsSuccessor = $activity->task_type !== ActivityData::FINISH_MILESTONE_TASK_TYPE;
@@ -54,14 +66,5 @@ final class MissingLogic
                     || ($needsSuccessor && ! isset($hasSuccessor[$activity->id]));
             })
             ->values();
-    }
-
-    /**
-     * Whether the logic rule examines the activity at all.
-     */
-    private static function isChecked(ActivityData $activity): bool
-    {
-        return $activity->status_code !== 'Completed'
-            && $activity->task_type !== ActivityData::WBS_SUMMARY_TASK_TYPE;
     }
 }

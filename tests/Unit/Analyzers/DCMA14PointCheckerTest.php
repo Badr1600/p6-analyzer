@@ -145,8 +145,37 @@ test('completed activities and WBS summaries are exempt from the logic point', f
     $result = (new DCMA14PointChecker)->calculate($activities, '2024-06-01', collect());
     $logic = collect($result['points'])->firstWhere('key', 'missing_logic');
 
+    // Nothing is checked, so the base is empty: 0%, not a division by zero
     expect($logic['count'])->toBe(0)
+        ->and($logic['percentage'])->toBe(0.0)
         ->and($logic['passed'])->toBeTrue();
+});
+
+test('the logic point percentage is measured against the activities the rule checks', function () {
+    // The completed activity and the WBS summary are never checked, so they stay out of the base;
+    // the finish milestone is checked (on its open side), so it is in it
+    $activities = collect([
+        makeDcmaPointActivity([], ['task_id' => '1', 'status_code' => 'TK_Complete']),
+        makeDcmaPointActivity(['task_code' => 'A2'], ['task_id' => '2', 'task_type' => 'TT_WBS']),
+        makeDcmaPointActivity(['task_code' => 'A3'], ['task_id' => '3']),                               // no links: missing
+        makeDcmaPointActivity(['task_code' => 'A4'], ['task_id' => '4']),
+        makeDcmaPointActivity(['task_code' => 'A5'], ['task_id' => '5']),
+        makeDcmaPointActivity(['task_code' => 'A6'], ['task_id' => '6', 'task_type' => 'TT_FinMile']),  // predecessor only: fine
+    ]);
+    $relationships = collect([
+        makeDcmaRelationship('90', '4'),
+        makeDcmaRelationship('4', '5'),
+        makeDcmaRelationship('5', '6'),
+    ]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, '2024-06-01', $relationships);
+    $logic = collect($result['points'])->firstWhere('key', 'missing_logic');
+
+    // One of the four checked activities, although five activities are incomplete
+    expect($result['incomplete_activities'])->toBe(5)
+        ->and($logic['count'])->toBe(1)
+        ->and($logic['percentage'])->toBe(25.0)
+        ->and($logic['passed'])->toBeFalse();
 });
 
 test('the logic point states the rule it applies', function () {

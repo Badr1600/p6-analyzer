@@ -116,6 +116,7 @@ class DCMA14PointChecker
         $lags = 0;
         $fsRelationships = 0;
         $missingLogic = 0;
+        $logicBase = 0;
 
         if ($relationships !== null) {
             foreach ($relationships as $rel) {
@@ -133,9 +134,10 @@ class DCMA14PointChecker
                 }
             }
 
-            // Point 1 uses the same rule as the schedule health check: an
-            // incomplete activity missing a predecessor or a successor.
+            // Point 1 uses the same rule as the schedule health check, and is
+            // measured against the activities that rule examines.
             $missingLogic = MissingLogic::find($activities, $relationships)->count();
+            $logicBase = MissingLogic::inScope($activities)->count();
         }
 
         $baseCount = $incompleteActivities > 0 ? $incompleteActivities : ($totalActivities > 0 ? $totalActivities : 1);
@@ -191,8 +193,8 @@ class DCMA14PointChecker
         $metrics['points'] = [
             $point(1, 'missing_logic', 'Logic', '≤ 5% missing a predecessor or successor', $assessable && $hasRelationships,
                 $hasRelationships ? $missingLogic : null,
-                $hasRelationships ? $pct($missingLogic, $baseCount) : null,
-                $assessable && $hasRelationships ? $pct($missingLogic, $baseCount) <= 5 : null,
+                $hasRelationships ? $pct($missingLogic, $logicBase) : null,
+                $assessable && $hasRelationships ? $pct($missingLogic, $logicBase) <= 5 : null,
                 $assessable ? ($hasRelationships ? null : $needsRelationships) : $noActivities),
             $point(2, 'leads', 'Leads (negative lag)', '0 relationships', $assessable && $hasRelationships,
                 $hasRelationships ? $leads : null,

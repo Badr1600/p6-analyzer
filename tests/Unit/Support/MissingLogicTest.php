@@ -100,6 +100,21 @@ test('a completed milestone is not missing logic', function (string $type) {
     'finish milestone' => 'TT_FinMile',
 ]);
 
+test('the activities in scope are the incomplete ones except WBS summaries', function () {
+    $activities = collect([
+        makeLogicActivity('1'),
+        makeLogicActivity('2', status: 'TK_Complete'),
+        makeLogicActivity('3', type: 'TT_WBS'),
+        makeLogicActivity('4', type: 'TT_Mile'),
+        makeLogicActivity('5', type: 'TT_FinMile'),
+        makeLogicActivity('6', status: 'TK_Complete', type: 'TT_FinMile'),
+    ]);
+
+    // Milestones are in: they are checked, on one side
+    expect(MissingLogic::inScope($activities)->map(fn (ActivityData $activity) => $activity->task_code)->all())
+        ->toBe(['A1', 'A4', 'A5']);
+});
+
 test('the offenders come back in schedule order', function () {
     $activities = [makeLogicActivity('3'), makeLogicActivity('1'), makeLogicActivity('2')];
 
