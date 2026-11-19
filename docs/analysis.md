@@ -50,7 +50,15 @@ counts every activity that is not complete.
 - **Point 11** (missed activities) looks at the activities whose planned finish is on or before the data date, and
   counts those finished on a later day than planned or not finished. Its percentage is of the activities due; it
   passes with a count of 0 when none was due.
-- **Points 2 to 4** (leads, lags, relationship types) count the relationships into an activity that is not complete.
+- **Points 2 to 4** (leads, lags, relationship types) count the relationships into an activity that is not complete
+  and is not a WBS summary or a level of effort activity. A relationship that names no successor, or one outside the
+  schedule, is counted.
+
+An activity with no status counts as not complete, whatever its actual dates.
+
+A data date with a time (`'2024-01-15 08:00'`) is measured to the minute, as P6 measures it. One without
+(`'2024-01-15'`) stands for its whole day: an actual date on that day is not after it, a forecast date on that day is
+not before it, and an activity planned to finish that day is due.
 
 `points` holds one entry for each of the 14 DCMA points, in DCMA order, and every entry has the same keys:
 

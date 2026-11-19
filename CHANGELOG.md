@@ -23,14 +23,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     the secondary constraint (`cstr_type2`) as well as the primary. Its label reads "≤ 5% of incomplete activities".
   - Point 9 (invalid dates) also counts an actual finish after the data date, and an activity not finished whose
     early finish (`early_end_date`, else `reend_date`) is before the data date. It counts an activity once, and its
-    percentage is of the activities it examines.
+    percentage is of the activities it examines. As more activities can now fail it, more schedules take the
+    `invalid_dates` penalty on `overall_score`.
   - Point 11 (missed activities) counts the activities due by the data date (planned finish on or before it) that
     finished on a later day than planned or are not finished, as a percentage of those due. It counted only the
     unfinished ones, against every incomplete activity. Its label reads "≤ 5% of those due finished late or not at
     all".
-  - Points 2 to 4 (leads, lags, relationship types) count the relationships into an activity that is not complete.
-    On the example schedule that is 539 of its 555 relationships: lags go from 29 to 28 and Finish-to-Start from
-    455 to 445.
+  - Points 2 to 4 (leads, lags, relationship types) count the relationships into an activity that is not complete
+    and is not a WBS summary or a level of effort activity. A relationship that names no successor, or one outside
+    the schedule, is still counted. On the example schedule that is 539 of its 555 relationships: lags go from 29
+    to 28 and Finish-to-Start from 455 to 445.
+  - A data date without a time (`'2024-01-15'`) stands for its whole day in points 9 and 11: an actual date on
+    that day is not after it, a forecast date on that day is not before it, and an activity planned to finish that
+    day is due. It was read as midnight, so work finished that day counted as an invalid date. A data date with a
+    time (`'2024-01-15 08:00'`) is still measured to the minute.
+  - An activity with no status counts as not complete in every point, whatever its actual dates. That is unchanged,
+    but point 11 now counts such an activity as missed once its planned finish has passed.
 
 ## [3.0.0] - 2026-10-29
 

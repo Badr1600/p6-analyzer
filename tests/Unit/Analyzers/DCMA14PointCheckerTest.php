@@ -379,3 +379,163 @@ test('the relationship points pass over a relationship into a completed activity
         ->and($byKey['relationship_types']['count'])->toBe(2)
         ->and($byKey['relationship_types']['percentage'])->toBe(100.0);
 });
+
+// ---------------------------------------------------------------
+// The data date: to the minute with a time, the whole day without
+// ---------------------------------------------------------------
+
+test('an actual finish on the data date is valid when the data date has no time', function (string $dataDate, int $expected) {
+    $activities = collect([makeDcmaPointActivity([], [
+        'task_id' => '1',
+        'status_code' => 'TK_Complete',
+        'act_start_date' => '2024-06-01 08:00',
+        'act_end_date' => '2024-06-01 17:00',
+    ])]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, $dataDate);
+
+    expect($result['invalid_dates_count'])->toBe($expected);
+})->with([
+    'no time: the day has not ended' => ['2024-06-01', 0],
+    'a time before the actual dates' => ['2024-06-01 07:00', 1],
+    'a time between the actual start and finish' => ['2024-06-01 12:00', 1],
+    'a time after the actual finish' => ['2024-06-01 17:30', 0],
+    'the day before, with no time' => ['2024-05-31', 1],
+]);
+
+test('a date forecast on the data date is valid when the data date has no time', function (string $dataDate, int $expected) {
+    $activities = collect([makeDcmaPointActivity([], [
+        'task_id' => '1',
+        'status_code' => 'TK_NotStart',
+        'target_start_date' => '2024-06-01 08:00',
+        'early_end_date' => '2024-06-01 17:00',
+    ])]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, $dataDate);
+
+    expect($result['invalid_dates_count'])->toBe($expected);
+})->with([
+    'no time: the day has not begun' => ['2024-06-01', 0],
+    'a time after the planned start' => ['2024-06-01 09:00', 1],
+    'the day after, with no time' => ['2024-06-02', 1],
+]);
+
+test('an activity planned to finish on the data date is due', function (string $dataDate, int $expected) {
+    $activities = collect([makeDcmaPointActivity([], [
+        'task_id' => '1',
+        'status_code' => 'TK_Active',
+        'act_start_date' => '2024-05-01 08:00',
+        'target_end_date' => '2024-06-01 17:00',
+        'early_end_date' => '2024-06-10 17:00',
+    ])]);
+
+    $missed = collect((new DCMA14PointChecker)->calculate($activities, $dataDate)['points'])->firstWhere('key', 'missed_activities');
+
+    expect($missed['count'])->toBe($expected);
+})->with([
+    'no time: due that day' => ['2024-06-01', 1],
+    'at its planned finish' => ['2024-06-01 17:00', 1],
+    'a time before its planned finish' => ['2024-06-01 16:00', 0],
+    'the day before, with no time' => ['2024-05-31', 0],
+]);
+
+test('an activity finished on its planned day, later in the day, is not missed', function () {
+    $activities = collect([makeDcmaPointActivity([], [
+        'task_id' => '1',
+        'status_code' => 'TK_Complete',
+        'target_end_date' => '2024-05-10 08:00',
+        'act_end_date' => '2024-05-10 17:00',
+    ])]);
+
+    $missed = collect((new DCMA14PointChecker)->calculate($activities, '2024-06-01')['points'])->firstWhere('key', 'missed_activities');
+
+    expect($missed['count'])->toBe(0)
+        ->and($missed['percentage'])->toBe(0.0);
+});
+
+test('the invalid dates and missed activities points pass over level of effort and WBS summary activities', function (string $taskType) {
+    $late = ['status_code' => 'TK_Active', 'act_start_date' => '2024-06-20 08:00', 'target_end_date' => '2024-05-10 17:00'];
+    $activities = collect([
+        makeDcmaPointActivity([], ['task_id' => '1', 'task_type' => $taskType, ...$late]),
+        makeDcmaPointActivity([], ['task_id' => '2', 'task_type' => 'TT_Task', ...$late]),
+    ]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, '2024-06-01');
+    $byKey = collect($result['points'])->keyBy('key');
+
+    // The rolled-up activity is counted as an activity, and as incomplete, but not by the points
+    expect($result['total_activities'])->toBe(2)
+        ->and($result['incomplete_activities'])->toBe(2)
+        ->and($byKey['invalid_dates']['count'])->toBe(1)
+        ->and($byKey['invalid_dates']['percentage'])->toBe(100.0)
+        ->and($byKey['missed_activities']['count'])->toBe(1)
+        ->and($byKey['missed_activities']['percentage'])->toBe(100.0);
+})->with(['level of effort' => 'TT_LOE', 'WBS summary' => 'TT_WBS']);
+
+test('the relationship points pass over a relationship into a level of effort or WBS summary activity', function () {
+    $activities = collect([
+        makeDcmaPointActivity([], ['task_id' => '1']),
+        makeDcmaPointActivity([], ['task_id' => '2']),
+        makeDcmaPointActivity([], ['task_id' => '3', 'task_type' => 'TT_LOE']),
+        makeDcmaPointActivity([], ['task_id' => '4', 'task_type' => 'TT_WBS']),
+    ]);
+    $relationships = collect([
+        makeDcmaRelationship('1', '2', 'PR_FS', '0'),
+        // A level of effort hangs on its neighbours by start and finish links, often with a lag
+        makeDcmaRelationship('1', '3', 'PR_SS', '16'),
+        makeDcmaRelationship('1', '4', 'PR_SS', '-8'),
+    ]);
+
+    $byKey = collect((new DCMA14PointChecker)->calculate($activities, '2024-06-01', $relationships)['points'])->keyBy('key');
+
+    expect($byKey['leads']['count'])->toBe(0)
+        ->and($byKey['lags']['count'])->toBe(0)
+        ->and($byKey['relationship_types']['count'])->toBe(1)
+        ->and($byKey['relationship_types']['percentage'])->toBe(100.0);
+});
+
+test('the relationship points count a relationship that names no successor, or one outside the schedule', function () {
+    // A completed activity with no id must not make the relationship with no successor disappear
+    $activities = collect([
+        makeDcmaPointActivity(['id' => ''], ['status_code' => 'TK_Complete']),
+        makeDcmaPointActivity([], ['task_id' => '2']),
+    ]);
+    $relationships = collect([
+        makeDcmaRelationship('2', '', 'PR_FS', '-8'),
+        makeDcmaRelationship('2', '999', 'PR_FS', '16'),
+    ]);
+
+    $byKey = collect((new DCMA14PointChecker)->calculate($activities, '2024-06-01', $relationships)['points'])->keyBy('key');
+
+    expect($byKey['leads']['count'])->toBe(1)
+        ->and($byKey['lags']['count'])->toBe(1)
+        ->and($byKey['relationship_types']['count'])->toBe(2);
+});
+
+test('an activity with no status counts as not complete', function () {
+    $activities = collect([makeDcmaPointActivity([], [
+        'task_id' => '1',
+        'total_float_hr_cnt' => '-8',
+        'target_end_date' => '2024-05-10 17:00',
+        'act_start_date' => '2024-05-01 08:00',
+        'act_end_date' => '2024-05-09 17:00',
+    ])]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, '2024-06-01');
+    $byKey = collect($result['points'])->keyBy('key');
+
+    expect($result['incomplete_activities'])->toBe(1)
+        ->and($byKey['negative_float']['count'])->toBe(1)
+        ->and($byKey['missed_activities']['count'])->toBe(1);
+});
+
+test('the example schedule\'s activity points at a data date', function () {
+    $data = (new XerParser)->parseFile($this->fixturePath());
+    $byKey = collect((new DCMA14PointChecker)->calculate($data->getActivities(), '2024-01-15', $data->getRelationships())['points'])->keyBy('key');
+
+    expect($byKey['hard_constraints']['count'])->toBe(0)
+        ->and($byKey['invalid_dates']['count'])->toBe(42)
+        ->and($byKey['invalid_dates']['percentage'])->toBe(9.88)
+        ->and($byKey['missed_activities']['count'])->toBe(0)
+        ->and($byKey['missed_activities']['passed'])->toBeTrue();
+});

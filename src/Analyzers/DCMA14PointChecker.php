@@ -79,6 +79,12 @@ class DCMA14PointChecker
         ]);
 
         $dataDateObj = $dataDate ? Carbon::parse($dataDate) : null;
+        // A data date with a time is measured to the minute, as P6 does. One
+        // without stands for its whole day: nothing dated that day is
+        // behind it or ahead of it.
+        $dataDateEnd = $dataDateObj === null || preg_match('/\d{1,2}:\d{2}/', (string) $dataDate) === 1
+            ? $dataDateObj
+            : $dataDateObj->copy()->endOfDay();
 
         // What the activity points count: detail work. A WBS summary and a
         // level of effort activity take their dates, duration and float
@@ -86,17 +92,21 @@ class DCMA14PointChecker
         $examinedActivities = 0;
         $examinedIncomplete = 0;
         $dueActivities = 0;
-        $completedIds = [];
+        // The activities a relationship into which the relationship points
+        // pass over: the completed and the rolled up.
+        $passedOverIds = [];
 
         foreach ($activities as $activity) {
             $isComplete = $activity->status_code === 'Completed';
+            $isRolledUp = in_array($activity->task_type, self::ROLLED_UP_TASK_TYPES, true);
             if (! $isComplete) {
                 $incompleteActivities++;
-            } else {
-                $completedIds[$activity->id] = true;
+            }
+            if (($isComplete || $isRolledUp) && $activity->id !== '') {
+                $passedOverIds[$activity->id] = true;
             }
 
-            if (in_array($activity->task_type, self::ROLLED_UP_TASK_TYPES, true)) {
+            if ($isRolledUp) {
                 continue;
             }
 
@@ -130,14 +140,14 @@ class DCMA14PointChecker
             }
 
             if ($dataDateObj) {
-                if ($this->hasInvalidDates($activity, $isComplete, $dataDateObj)) {
+                if ($this->hasInvalidDates($activity, $isComplete, $dataDateObj, $dataDateEnd)) {
                     $invalidDates++;
                 }
 
                 // Missed: due by the data date, and finished after its
                 // planned finish or not at all. Measured against those due.
                 $plannedFinish = $activity->target_end_date;
-                if ($plannedFinish && $plannedFinish->lessThanOrEqualTo($dataDateObj)) {
+                if ($plannedFinish && $plannedFinish->lessThanOrEqualTo($dataDateEnd)) {
                     $dueActivities++;
 
                     $actualFinish = $activity->act_end_date;
@@ -159,8 +169,10 @@ class DCMA14PointChecker
         if ($relationships !== null) {
             foreach ($relationships as $rel) {
                 // A relationship into a completed activity is history: its
-                // lag and type no longer move anything.
-                if (isset($completedIds[(string) ($rel->raw_data['task_id'] ?? '')])) {
+                // lag and type no longer move anything. One into a WBS
+                // summary or a level of effort activity only stretches it
+                // over its neighbours.
+                if (isset($passedOverIds[(string) ($rel->raw_data['task_id'] ?? '')])) {
                     continue;
                 }
 
@@ -317,10 +329,14 @@ class DCMA14PointChecker
      * activity not started whose planned start is behind it, or one not
      * finished whose early finish (else its remaining finish) is behind it.
      * An activity with several such dates is counted once.
+     *
+     * @param  Carbon  $dataDate  The data date, which a forecast date must not be before.
+     * @param  Carbon  $dataDateEnd  The same moment, or the end of its day when it has no time: what an actual
+     *                               date must not be after.
      */
-    private function hasInvalidDates(ActivityData $activity, bool $isComplete, Carbon $dataDate): bool
+    private function hasInvalidDates(ActivityData $activity, bool $isComplete, Carbon $dataDate, Carbon $dataDateEnd): bool
     {
-        if ($activity->act_start_date?->isAfter($dataDate) || $activity->act_end_date?->isAfter($dataDate)) {
+        if ($activity->act_start_date?->isAfter($dataDateEnd) || $activity->act_end_date?->isAfter($dataDateEnd)) {
             return true;
         }
 
