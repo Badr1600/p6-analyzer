@@ -9,9 +9,13 @@ test('it calculates DCMA score from real XER data', function () {
     $data = (new XerParser)->parseFile($this->fixturePath());
     $result = (new DCMA14PointChecker)->calculate($data->getActivities());
 
-    // 193 of the 414 incomplete activities have high float: (46.62% - 5%) is deducted from 100
+    // 414 activities are incomplete, 10 of them WBS summaries. 191 of the other 404 have high float:
+    // (47.28% - 5%) is deducted from 100
     expect($result)->toHaveKeys(['total_activities', 'incomplete_activities', 'negative_float_count', 'overall_score'])
-        ->and($result['overall_score'])->toBe(58.38);
+        ->and($result['incomplete_activities'])->toBe(414)
+        ->and($result['high_float_count'])->toBe(191)
+        ->and($result['high_float_pct'])->toBe(47.28)
+        ->and($result['overall_score'])->toBe(57.72);
 });
 
 test('it accepts a data date for date validation', function () {
@@ -228,4 +232,150 @@ test('empty schedule is flagged not assessable', function () {
 
     expect($result['assessable'])->toBeFalse()
         ->and(collect($result['points'])->firstWhere('key', 'negative_float')['passed'])->toBeNull();
+});
+
+// ---------------------------------------------------------------
+// The population each point counts
+// ---------------------------------------------------------------
+
+test('the float, duration and constraint points count incomplete activities only', function () {
+    // Eight completed activities were long, pinned to a date and behind; two are still open and clean
+    $completed = collect(range(1, 8))->map(fn (int $id) => makeDcmaPointActivity([], [
+        'task_id' => (string) $id,
+        'status_code' => 'TK_Complete',
+        'total_float_hr_cnt' => '-8',
+        'target_drtn_hr_cnt' => '400',
+        'cstr_type' => 'CS_MSO',
+    ]));
+    $open = collect(range(9, 10))->map(fn (int $id) => makeDcmaPointActivity([], [
+        'task_id' => (string) $id,
+        'status_code' => 'TK_NotStart',
+        'total_float_hr_cnt' => '0',
+        'target_drtn_hr_cnt' => '40',
+    ]));
+
+    $result = (new DCMA14PointChecker)->calculate($completed->concat($open));
+    $byKey = collect($result['points'])->keyBy('key');
+
+    expect($byKey['hard_constraints']['count'])->toBe(0)
+        ->and($byKey['negative_float']['count'])->toBe(0)
+        ->and($byKey['high_duration']['count'])->toBe(0)
+        ->and($byKey['high_duration']['percentage'])->toBe(0.0)
+        ->and($result['negative_float_count'])->toBe(0)
+        ->and($result['high_duration_pct'])->toBe(0.0)
+        ->and($result['overall_score'])->toBe(100);
+});
+
+test('the float, duration and constraint points pass over level of effort and WBS summary activities', function (string $taskType) {
+    $activities = collect([
+        makeDcmaPointActivity([], ['task_id' => '1', 'task_type' => $taskType, 'total_float_hr_cnt' => '400', 'target_drtn_hr_cnt' => '2000', 'cstr_type' => 'CS_MANDFIN']),
+        makeDcmaPointActivity([], ['task_id' => '2', 'task_type' => 'TT_Task', 'total_float_hr_cnt' => '400', 'target_drtn_hr_cnt' => '2000', 'cstr_type' => 'CS_MANDFIN']),
+        makeDcmaPointActivity([], ['task_id' => '3', 'task_type' => 'TT_Task', 'total_float_hr_cnt' => '0', 'target_drtn_hr_cnt' => '40']),
+    ]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities);
+    $byKey = collect($result['points'])->keyBy('key');
+
+    // One of the two task-dependent activities fails each: 50%, not two of three
+    expect($byKey['hard_constraints']['count'])->toBe(1)
+        ->and($byKey['hard_constraints']['percentage'])->toBe(50.0)
+        ->and($byKey['high_float']['count'])->toBe(1)
+        ->and($byKey['high_float']['percentage'])->toBe(50.0)
+        ->and($byKey['high_duration']['count'])->toBe(1)
+        ->and($byKey['high_duration']['percentage'])->toBe(50.0);
+})->with(['level of effort' => 'TT_LOE', 'WBS summary' => 'TT_WBS']);
+
+test('a constraint that stops an activity moving later is hard, as a primary or a secondary constraint', function (array $constraint, int $expected) {
+    $activities = collect([makeDcmaPointActivity([], ['task_id' => '1', ...$constraint])]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities);
+
+    expect(collect($result['points'])->firstWhere('key', 'hard_constraints')['count'])->toBe($expected);
+})->with([
+    'mandatory start' => [['cstr_type' => 'CS_MANDSTART'], 1],
+    'mandatory finish' => [['cstr_type' => 'CS_MANDFIN'], 1],
+    'start on' => [['cstr_type' => 'CS_MSO'], 1],
+    'finish on' => [['cstr_type' => 'CS_MEO'], 1],
+    'start on or before' => [['cstr_type' => 'CS_MSOB'], 1],
+    'finish on or before' => [['cstr_type' => 'CS_MEOB'], 1],
+    'a hard secondary constraint' => [['cstr_type' => 'CS_MSOA', 'cstr_type2' => 'CS_MEOB'], 1],
+    'hard primary and secondary constraints, once' => [['cstr_type' => 'CS_MSO', 'cstr_type2' => 'CS_MEO'], 1],
+    'start on or after' => [['cstr_type' => 'CS_MSOA'], 0],
+    'finish on or after' => [['cstr_type' => 'CS_MEOA'], 0],
+    'as late as possible' => [['cstr_type' => 'CS_ALAP'], 0],
+]);
+
+test('the invalid dates point counts an actual date after the data date and a forecast date before it', function (array $raw, int $expected) {
+    $activities = collect([makeDcmaPointActivity([], ['task_id' => '1', ...$raw])]);
+
+    $result = (new DCMA14PointChecker)->calculate($activities, '2024-06-01 08:00');
+
+    expect(collect($result['points'])->firstWhere('key', 'invalid_dates')['count'])->toBe($expected)
+        ->and($result['invalid_dates_count'])->toBe($expected);
+})->with([
+    'started after the data date' => [['status_code' => 'TK_Active', 'act_start_date' => '2024-06-10 08:00'], 1],
+    'finished after the data date' => [['status_code' => 'TK_Complete', 'act_start_date' => '2024-05-01 08:00', 'act_end_date' => '2024-06-10 17:00'], 1],
+    'started and finished after the data date, once' => [['status_code' => 'TK_Complete', 'act_start_date' => '2024-06-05 08:00', 'act_end_date' => '2024-06-10 17:00'], 1],
+    'not started, planned to start before the data date' => [['status_code' => 'TK_NotStart', 'target_start_date' => '2024-05-20 08:00'], 1],
+    'in progress, forecast to finish before the data date' => [['status_code' => 'TK_Active', 'act_start_date' => '2024-05-01 08:00', 'early_end_date' => '2024-05-25 17:00'], 1],
+    'in progress, remaining finish before the data date' => [['status_code' => 'TK_Active', 'act_start_date' => '2024-05-01 08:00', 'reend_date' => '2024-05-25 17:00'], 1],
+    'in progress, forecast to finish after the data date' => [['status_code' => 'TK_Active', 'act_start_date' => '2024-05-01 08:00', 'early_end_date' => '2024-06-25 17:00'], 0],
+    'finished before the data date' => [['status_code' => 'TK_Complete', 'act_start_date' => '2024-05-01 08:00', 'act_end_date' => '2024-05-20 17:00', 'early_end_date' => '2024-05-20 17:00'], 0],
+    'not started, planned to start after the data date' => [['status_code' => 'TK_NotStart', 'target_start_date' => '2024-06-20 08:00', 'early_end_date' => '2024-06-28 17:00'], 0],
+]);
+
+test('the missed activities point measures those finished late or still open against those due by the data date', function () {
+    $activities = collect([
+        // Due, finished on time
+        makeDcmaPointActivity([], ['task_id' => '1', 'status_code' => 'TK_Complete', 'target_end_date' => '2024-05-10 17:00', 'act_end_date' => '2024-05-10 17:00']),
+        makeDcmaPointActivity([], ['task_id' => '2', 'status_code' => 'TK_Complete', 'target_end_date' => '2024-05-10 17:00', 'act_end_date' => '2024-05-08 17:00']),
+        // Due, finished late
+        makeDcmaPointActivity([], ['task_id' => '3', 'status_code' => 'TK_Complete', 'target_end_date' => '2024-05-10 17:00', 'act_end_date' => '2024-05-20 17:00']),
+        // Due, still open
+        makeDcmaPointActivity([], ['task_id' => '4', 'status_code' => 'TK_Active', 'target_end_date' => '2024-05-10 17:00']),
+        // Not due yet: neither missed nor measured against
+        makeDcmaPointActivity([], ['task_id' => '5', 'status_code' => 'TK_NotStart', 'target_end_date' => '2024-07-10 17:00']),
+        makeDcmaPointActivity([], ['task_id' => '6', 'status_code' => 'TK_NotStart', 'target_end_date' => '2024-07-10 17:00']),
+    ]);
+
+    $missed = collect((new DCMA14PointChecker)->calculate($activities, '2024-06-01 08:00')['points'])->firstWhere('key', 'missed_activities');
+
+    expect($missed['count'])->toBe(2)
+        ->and($missed['percentage'])->toBe(50.0)
+        ->and($missed['passed'])->toBeFalse();
+});
+
+test('the missed activities point passes when nothing was due by the data date', function () {
+    $activities = collect([makeDcmaPointActivity([], ['task_id' => '1', 'status_code' => 'TK_NotStart', 'target_end_date' => '2024-07-10 17:00'])]);
+
+    $missed = collect((new DCMA14PointChecker)->calculate($activities, '2024-06-01 08:00')['points'])->firstWhere('key', 'missed_activities');
+
+    expect($missed['count'])->toBe(0)
+        ->and($missed['percentage'])->toBe(0.0)
+        ->and($missed['passed'])->toBeTrue();
+});
+
+test('the relationship points pass over a relationship into a completed activity', function () {
+    $activities = collect([
+        makeDcmaPointActivity([], ['task_id' => '1', 'status_code' => 'TK_Complete']),
+        makeDcmaPointActivity([], ['task_id' => '2', 'status_code' => 'TK_Complete']),
+        makeDcmaPointActivity([], ['task_id' => '3', 'status_code' => 'TK_NotStart']),
+        makeDcmaPointActivity([], ['task_id' => '4', 'status_code' => 'TK_NotStart']),
+    ]);
+    $relationships = collect([
+        // Into a completed activity: history, whatever its lag and type
+        makeDcmaRelationship('1', '2', 'PR_SS', '-8'),
+        makeDcmaRelationship('1', '2', 'PR_FF', '16'),
+        // Into open activities
+        makeDcmaRelationship('2', '3', 'PR_FS', '0'),
+        makeDcmaRelationship('3', '4', 'PR_FS', '0'),
+    ]);
+
+    $byKey = collect((new DCMA14PointChecker)->calculate($activities, '2024-06-01', $relationships)['points'])->keyBy('key');
+
+    expect($byKey['leads']['count'])->toBe(0)
+        ->and($byKey['leads']['passed'])->toBeTrue()
+        ->and($byKey['lags']['count'])->toBe(0)
+        ->and($byKey['relationship_types']['count'])->toBe(2)
+        ->and($byKey['relationship_types']['percentage'])->toBe(100.0);
 });

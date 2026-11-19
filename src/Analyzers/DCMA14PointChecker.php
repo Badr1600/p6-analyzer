@@ -19,14 +19,30 @@ use TeckFuture\P6Analyzer\Support\MissingLogic;
  * test, CPLI, BEI) require an approved baseline or an intentional-delay
  * simulation and are reported as not assessable rather than fabricated.
  *
- * The flat count/percentage keys and `overall_score` keep their original
- * semantics (score derives from the original four checks) so stored score
- * history remains comparable across package versions.
+ * The activity points (5 to 9 and 11) count detail work: WBS summaries and
+ * level of effort activities are passed over. Points 5 to 8 count the
+ * activities that are not complete, and the relationship points (2 to 4) the
+ * relationships into one; point 11 is measured against the activities due
+ * by the data date.
+ *
+ * `overall_score` still derives from the original four checks (high float,
+ * negative float, high duration, invalid dates) and their flat
+ * count/percentage keys, which follow the points' counting.
  */
 class DCMA14PointChecker
 {
-    /** Constraint types that pin an activity to a date against the logic. */
-    private const HARD_CONSTRAINT_TYPES = ['CS_MANDSTART', 'CS_MANDFIN', 'CS_MSO', 'CS_MEO'];
+    /**
+     * Constraint types that stop an activity moving later, against the
+     * logic: mandatory start and finish, start on and finish on, and start
+     * on or before and finish on or before (DCMA's SNLT and FNLT).
+     */
+    private const HARD_CONSTRAINT_TYPES = ['CS_MANDSTART', 'CS_MANDFIN', 'CS_MSO', 'CS_MEO', 'CS_MSOB', 'CS_MEOB'];
+
+    /**
+     * Task types whose dates, duration and float are rolled up from other
+     * activities, which the activity points pass over.
+     */
+    private const ROLLED_UP_TASK_TYPES = [ActivityData::WBS_SUMMARY_TASK_TYPE, ActivityData::LEVEL_OF_EFFORT_TASK_TYPE];
 
     /**
      * @param  Collection<int, ActivityData>|array<int, ActivityData>  $activities
@@ -64,48 +80,70 @@ class DCMA14PointChecker
 
         $dataDateObj = $dataDate ? Carbon::parse($dataDate) : null;
 
+        // What the activity points count: detail work. A WBS summary and a
+        // level of effort activity take their dates, duration and float
+        // from other activities, so they would be counted twice.
+        $examinedActivities = 0;
+        $examinedIncomplete = 0;
+        $dueActivities = 0;
+        $completedIds = [];
+
         foreach ($activities as $activity) {
-            $status = $activity->status_code;
-            $isComplete = $status === 'Completed';
+            $isComplete = $activity->status_code === 'Completed';
             if (! $isComplete) {
                 $incompleteActivities++;
+            } else {
+                $completedIds[$activity->id] = true;
             }
 
-            $floatHr = $activity->total_float_hr_cnt;
-            if ($floatHr !== null) {
-                if ($floatHr < 0) {
-                    $negativeFloat++;
+            if (in_array($activity->task_type, self::ROLLED_UP_TASK_TYPES, true)) {
+                continue;
+            }
+
+            $examinedActivities++;
+
+            // Points 5 to 8 are about work still to do: a completed
+            // activity's float, duration and constraint no longer drive
+            // the schedule.
+            if (! $isComplete) {
+                $examinedIncomplete++;
+
+                $floatHr = $activity->total_float_hr_cnt;
+                if ($floatHr !== null) {
+                    if ($floatHr < 0) {
+                        $negativeFloat++;
+                    }
+                    if ($floatHr > $highFloatThreshold) {
+                        $highFloat++;
+                    }
                 }
-                if ($floatHr > $highFloatThreshold) {
-                    $highFloat++;
+
+                $durationHr = $activity->target_drtn_hr_cnt;
+                if ($durationHr !== null && $durationHr > $highDurationThreshold) {
+                    $highDuration++;
                 }
-            }
 
-            $durationHr = $activity->target_drtn_hr_cnt;
-            if ($durationHr !== null && $durationHr > $highDurationThreshold) {
-                $highDuration++;
-            }
-
-            $constraintType = $activity->raw_data['cstr_type'] ?? null;
-            if (in_array($constraintType, self::HARD_CONSTRAINT_TYPES, true)) {
-                $hardConstraints++;
+                if (in_array($activity->raw_data['cstr_type'] ?? null, self::HARD_CONSTRAINT_TYPES, true)
+                    || in_array($activity->raw_data['cstr_type2'] ?? null, self::HARD_CONSTRAINT_TYPES, true)) {
+                    $hardConstraints++;
+                }
             }
 
             if ($dataDateObj) {
-                $actualStart = $activity->act_start_date;
-                $targetStart = $activity->target_start_date;
-
-                if ($actualStart && $actualStart->isAfter($dataDateObj)) {
-                    $invalidDates++;
-                }
-                if ($targetStart && ! $isComplete && $targetStart->isBefore($dataDateObj) && ! $actualStart) {
+                if ($this->hasInvalidDates($activity, $isComplete, $dataDateObj)) {
                     $invalidDates++;
                 }
 
-                // Missed: still open although its planned finish is behind
-                // the data date.
-                if (! $isComplete && $activity->target_end_date && $activity->target_end_date->isBefore($dataDateObj)) {
-                    $missedActivities++;
+                // Missed: due by the data date, and finished after its
+                // planned finish or not at all. Measured against those due.
+                $plannedFinish = $activity->target_end_date;
+                if ($plannedFinish && $plannedFinish->lessThanOrEqualTo($dataDateObj)) {
+                    $dueActivities++;
+
+                    $actualFinish = $activity->act_end_date;
+                    if (! $isComplete || ($actualFinish && $actualFinish->copy()->startOfDay()->isAfter($plannedFinish->copy()->startOfDay()))) {
+                        $missedActivities++;
+                    }
                 }
             }
         }
@@ -120,6 +158,12 @@ class DCMA14PointChecker
 
         if ($relationships !== null) {
             foreach ($relationships as $rel) {
+                // A relationship into a completed activity is history: its
+                // lag and type no longer move anything.
+                if (isset($completedIds[(string) ($rel->raw_data['task_id'] ?? '')])) {
+                    continue;
+                }
+
                 $totalRelationships++;
 
                 $lag = $rel->lag_hr_cnt ?? 0;
@@ -140,7 +184,7 @@ class DCMA14PointChecker
             $logicBase = MissingLogic::inScope($activities)->count();
         }
 
-        $baseCount = $incompleteActivities > 0 ? $incompleteActivities : ($totalActivities > 0 ? $totalActivities : 1);
+        $baseCount = max($examinedIncomplete, 1);
         $relationshipBase = max($totalRelationships, 1);
 
         $pct = fn (int $count, int $base) => round(($count / max($base, 1)) * 100, 2);
@@ -211,7 +255,7 @@ class DCMA14PointChecker
                 $hasRelationships && $totalRelationships > 0 ? $pct($fsRelationships, $totalRelationships) : null,
                 $assessable && $hasRelationships && $totalRelationships > 0 ? $pct($fsRelationships, $totalRelationships) >= 90 : null,
                 $assessable ? ($hasRelationships ? ($totalRelationships > 0 ? null : 'No relationships in scope.') : $needsRelationships) : $noActivities),
-            $point(5, 'hard_constraints', 'Hard constraints', '≤ 5% of activities', $assessable,
+            $point(5, 'hard_constraints', 'Hard constraints', '≤ 5% of incomplete activities', $assessable,
                 $hardConstraints, $pct($hardConstraints, $baseCount),
                 $assessable ? $pct($hardConstraints, $baseCount) <= 5 : null,
                 $assessable ? null : $noActivities),
@@ -229,15 +273,15 @@ class DCMA14PointChecker
                 $assessable ? null : $noActivities),
             $point(9, 'invalid_dates', 'Invalid dates', '0 activities', $assessable && $hasDataDate,
                 $hasDataDate ? $invalidDates : null,
-                $hasDataDate ? $pct($invalidDates, $baseCount) : null,
+                $hasDataDate ? $pct($invalidDates, $examinedActivities) : null,
                 $assessable && $hasDataDate ? $invalidDates === 0 : null,
                 $assessable ? ($hasDataDate ? null : $needsDataDate) : $noActivities),
             $point(10, 'resources', 'Resources', 'All effort activities resourced', false,
                 null, null, null, 'Requires a cost/resource loading assessment.'),
-            $point(11, 'missed_activities', 'Missed activities', '≤ 5% past planned finish', $assessable && $hasDataDate,
+            $point(11, 'missed_activities', 'Missed activities', '≤ 5% of those due finished late or not at all', $assessable && $hasDataDate,
                 $hasDataDate ? $missedActivities : null,
-                $hasDataDate ? $pct($missedActivities, $baseCount) : null,
-                $assessable && $hasDataDate ? $pct($missedActivities, $baseCount) <= 5 : null,
+                $hasDataDate ? $pct($missedActivities, $dueActivities) : null,
+                $assessable && $hasDataDate ? $pct($missedActivities, $dueActivities) <= 5 : null,
                 $assessable ? ($hasDataDate ? null : $needsDataDate) : $noActivities),
             $point(12, 'critical_path_test', 'Critical path test', 'Delay propagates to finish', false,
                 null, null, null, 'Requires an intentional-delay simulation in the scheduling tool.'),
@@ -264,5 +308,50 @@ class DCMA14PointChecker
         $metrics['overall_score'] = max(0, min(100, round(100 - $penalty, 2)));
 
         return $metrics;
+    }
+
+    /**
+     * Point 9: a date that cannot be right at the data date. An actual start
+     * or finish after it has not happened yet. A start or finish still
+     * forecast before it should have happened and has no actual: an
+     * activity not started whose planned start is behind it, or one not
+     * finished whose early finish (else its remaining finish) is behind it.
+     * An activity with several such dates is counted once.
+     */
+    private function hasInvalidDates(ActivityData $activity, bool $isComplete, Carbon $dataDate): bool
+    {
+        if ($activity->act_start_date?->isAfter($dataDate) || $activity->act_end_date?->isAfter($dataDate)) {
+            return true;
+        }
+
+        if ($isComplete) {
+            return false;
+        }
+
+        if (! $activity->act_start_date && $activity->target_start_date?->isBefore($dataDate)) {
+            return true;
+        }
+
+        $forecastFinish = $this->dateOf($activity->raw_data['early_end_date'] ?? null)
+            ?? $this->dateOf($activity->raw_data['reend_date'] ?? null);
+
+        return (bool) $forecastFinish?->isBefore($dataDate);
+    }
+
+    private function dateOf(mixed $value): ?Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Exception) {
+            return null;
+        }
     }
 }

@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- `ActivityData::LEVEL_OF_EFFORT_TASK_TYPE` (`TT_LOE`).
+
+### Changed
+- **Breaking:** The DCMA check counts what the DCMA points define, so `overall_score`, the flat `*_count` and
+  `*_pct` keys and the `points` table change for most schedules. Scores stored from an earlier version are not
+  comparable with new ones. On the package's example schedule the score goes from 58.38 to 57.72.
+  - Points 5 to 9 and 11 pass over WBS summaries (`TT_WBS`) and level of effort activities (`TT_LOE`), whose dates,
+    duration and float are rolled up from other activities. A long level of effort activity failed point 8.
+  - Points 5 to 8 (hard constraints, high float, negative float, high duration) count the activities that are not
+    complete. They counted completed ones too, yet divided by the incomplete, so a schedule near its end could
+    report more than 100% and score 0. The `*_pct` keys are of the incomplete activities these points examine; with
+    none, they are 0 (they were of every activity).
+  - Point 5 counts start on or before (`CS_MSOB`) and finish on or before (`CS_MEOB`) as hard constraints, and reads
+    the secondary constraint (`cstr_type2`) as well as the primary. Its label reads "≤ 5% of incomplete activities".
+  - Point 9 (invalid dates) also counts an actual finish after the data date, and an activity not finished whose
+    early finish (`early_end_date`, else `reend_date`) is before the data date. It counts an activity once, and its
+    percentage is of the activities it examines.
+  - Point 11 (missed activities) counts the activities due by the data date (planned finish on or before it) that
+    finished on a later day than planned or are not finished, as a percentage of those due. It counted only the
+    unfinished ones, against every incomplete activity. Its label reads "≤ 5% of those due finished late or not at
+    all".
+  - Points 2 to 4 (leads, lags, relationship types) count the relationships into an activity that is not complete.
+    On the example schedule that is 539 of its 555 relationships: lags go from 29 to 28 and Finish-to-Start from
+    455 to 445.
+
 ## [3.0.0] - 2026-10-29
 
 Version 3.0 makes the analyzers agree with each other and with P6, hardens reading and writing XER and CSV files,

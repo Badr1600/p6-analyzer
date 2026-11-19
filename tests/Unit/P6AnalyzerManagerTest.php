@@ -154,25 +154,26 @@ test('floatAnalysis() returns non-empty distribution', function () {
 test('dcma14Point() applies the data date when scoring', function () {
     $result = loadedManager()->dcma14Point('2024-01-15');
 
-    // The fixture scores 58.38 without a data date; at 2024-01-15 its invalid dates cost another 10 points
-    expect($result['overall_score'])->toBe(48.38);
+    // The fixture scores 57.72 without a data date; at 2024-01-15 its invalid dates cost another 10 points
+    expect($result['overall_score'])->toBe(47.72);
 });
 
 test('dcma14Point() assesses the logic, lead, lag and relationship-type points', function () {
     $points = collect(loadedManager()->dcma14Point('2024-01-15')['points'])->keyBy('key');
 
-    // The fixture has 555 relationships: 18 with negative lag, 29 with positive lag, 455 Finish-to-Start
+    // The fixture has 555 relationships, 539 of them into an activity that is not complete: 18 with negative
+    // lag, 28 with positive lag, 445 Finish-to-Start
     expect($points['missing_logic']['assessable'])->toBeTrue()
         ->and($points['missing_logic']['count'])->toBe(6)
         ->and($points['missing_logic']['percentage'])->toBe(1.49)
         ->and($points['missing_logic']['passed'])->toBeTrue()
         ->and($points['leads']['count'])->toBe(18)
         ->and($points['leads']['passed'])->toBeFalse()
-        ->and($points['lags']['count'])->toBe(29)
-        ->and($points['lags']['percentage'])->toBe(5.23)
+        ->and($points['lags']['count'])->toBe(28)
+        ->and($points['lags']['percentage'])->toBe(5.19)
         ->and($points['lags']['passed'])->toBeFalse()
-        ->and($points['relationship_types']['count'])->toBe(455)
-        ->and($points['relationship_types']['percentage'])->toBe(81.98)
+        ->and($points['relationship_types']['count'])->toBe(445)
+        ->and($points['relationship_types']['percentage'])->toBe(82.56)
         ->and($points['relationship_types']['passed'])->toBeFalse();
 });
 
