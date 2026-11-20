@@ -27,6 +27,11 @@ final class ActivityData
     public const WBS_SUMMARY_TASK_TYPE = 'TT_WBS';
 
     /**
+     * Task type P6 writes for a level of effort activity (`TASK.task_type`).
+     */
+    public const LEVEL_OF_EFFORT_TASK_TYPE = 'TT_LOE';
+
+    /**
      * Task type P6 writes for a start milestone (`TASK.task_type`).
      */
     public const START_MILESTONE_TASK_TYPE = 'TT_Mile';

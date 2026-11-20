@@ -34,9 +34,31 @@ $result = $analyzer->dcma14Point('2024-01-15');
 ```
 
 `overall_score` runs from 0 to 100. It is derived from the high float, negative float, high duration and invalid-date
-checks only (weighted by `dcma_penalty_weights`), so stored scores stay comparable across versions. `assessable` is
-`false` when there are no activities. The `*_pct` values are percentages of `incomplete_activities` (of
-`total_activities` when none is incomplete).
+checks only (weighted by `dcma_penalty_weights`). `assessable` is `false` when there are no activities.
+
+The activity points count detail work: a WBS summary (`TT_WBS`) and a level of effort activity (`TT_LOE`) take their
+dates, duration and float from other activities, so points 5 to 9 and 11 pass over them. `incomplete_activities` still
+counts every activity that is not complete.
+
+- **Points 5 to 8** (hard constraints, high float, negative float, high duration) count the activities that are not
+  complete, and their percentages, like the `*_pct` values, are of those. A hard constraint is one that stops an
+  activity moving later: mandatory start or finish, start on or finish on, start on or before or finish on or before,
+  as the primary (`cstr_type`) or the secondary (`cstr_type2`) constraint.
+- **Point 9** (invalid dates) counts an activity once when it has an actual start or finish after the data date, or
+  is still forecast before it: not started with a planned start behind the data date, or not finished with an early
+  finish (`early_end_date`, else `reend_date`) behind it.
+- **Point 11** (missed activities) looks at the activities whose planned finish is on or before the data date, and
+  counts those finished on a later day than planned or not finished. Its percentage is of the activities due; it
+  passes with a count of 0 when none was due.
+- **Points 2 to 4** (leads, lags, relationship types) count the relationships into an activity that is not complete
+  and is not a WBS summary or a level of effort activity. A relationship that names no successor, or one outside the
+  schedule, is counted.
+
+An activity with no status counts as not complete, whatever its actual dates.
+
+A data date with a time (`'2024-01-15 08:00'`) is measured to the minute, as P6 measures it. One without
+(`'2024-01-15'`) stands for its whole day: an actual date on that day is not after it, a forecast date on that day is
+not before it, and an activity planned to finish that day is due.
 
 `points` holds one entry for each of the 14 DCMA points, in DCMA order, and every entry has the same keys:
 
