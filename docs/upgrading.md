@@ -1,7 +1,51 @@
 # Upgrading
 
+- [Upgrading from 3.x to 4.0](#upgrading-from-3x-to-40)
 - [Upgrading from 2.x to 3.0](#upgrading-from-2x-to-30)
 - [Upgrading from 1.x to 2.x](#upgrading-from-1x-to-2x)
+
+## Upgrading from 3.x to 4.0
+
+Version 4.0 makes the DCMA 14-point check count what the DCMA points define. The requirements are unchanged: PHP
+8.3 or newer and Laravel 12 or 13. 3.x no longer receives security fixes (see [SECURITY.md](../SECURITY.md)).
+
+```bash
+composer require teckfuture/laravel-p6-analyzer:^4.0
+```
+
+No class, method or result key is renamed or removed, so code written for 3.x runs as it is. What changes is
+the result of `dcma14Point()`, `DCMA14PointChecker::calculate()` and `report()['dcma']`: `overall_score`, the
+flat `*_count` and `*_pct` keys and the `points` table. On the package's example schedule,
+`tests/fixtures/example_xer_file.xer` in the repository, the score goes from 58.38 to 57.72.
+
+**Who is affected:** anyone who stores, charts or alerts on the DCMA score or its points, compares the
+`threshold_label` of point 5 or 11 with a fixed string, or lists the activities behind a count with conditions
+of their own.
+
+| Points | 3.x | 4.0 |
+|---|---|---|
+| 2 to 4 (leads, lags, relationship types) | every relationship | the relationships into an activity that is not complete and is not a WBS summary or a level of effort activity |
+| 5 to 8 (hard constraints, high float, negative float, high duration) | every activity, as a percentage of the incomplete ones | the incomplete activities, as a percentage of them |
+| 5 (hard constraints) | mandatory start and finish, start on and finish on, primary constraint only | also start on or before (`CS_MSOB`) and finish on or before (`CS_MEOB`), primary and secondary constraint |
+| 9 (invalid dates) | an actual start after the data date, or a planned start before it with no actual start | also an actual finish after the data date, and an unfinished activity whose early finish is before it; one count per activity |
+| 11 (missed activities) | unfinished activities planned to finish before the data date, as a percentage of the incomplete ones | activities due by the data date that finished on a later day than planned or are not finished, as a percentage of those due |
+| 5 to 9 and 11 | WBS summaries and level of effort activities counted | both passed over |
+
+A data date without a time (`'2024-01-15'`) stands for its whole day in points 9 and 11, where 3.x read it as
+midnight. A data date with a time (`'2024-01-15 08:00'`) is still measured to the minute. Because more
+activities can fail point 9, more schedules take the `invalid_dates` penalty on `overall_score`.
+
+**What to do:**
+
+- Re-baseline stored scores, history and thresholds: a score stored by 3.x is not comparable with one from 4.0.
+  Clear any cached DCMA results when you deploy.
+- If your code works out which activities fail a point, apply the same conditions, or the list and the count
+  will disagree. The activities to pass over are the completed ones and those whose `task_type` is
+  `ActivityData::WBS_SUMMARY_TASK_TYPE` or `ActivityData::LEVEL_OF_EFFORT_TASK_TYPE`.
+- Point 5's label now reads "≤ 5% of incomplete activities" and point 11's "≤ 5% of those due finished late or
+  not at all". Read `threshold_label` from the result instead of repeating it.
+
+See the [4.0.0 entry in the CHANGELOG](../CHANGELOG.md) for the full list of changes.
 
 ## Upgrading from 2.x to 3.0
 

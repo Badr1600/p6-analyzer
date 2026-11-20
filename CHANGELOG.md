@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-11-19
+
+Version 4.0 makes the DCMA 14-point check count what the DCMA points define. No class, method or result key is
+renamed or removed, but the counts, percentages and score change for most schedules.
+[docs/upgrading.md](https://github.com/Badr1600/p6-analyzer/blob/main/docs/upgrading.md) explains what moves and
+what to do about stored results. 3.x no longer receives security fixes.
+
 ### Added
 - `ActivityData::LEVEL_OF_EFFORT_TASK_TYPE` (`TT_LOE`).
 
