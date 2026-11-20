@@ -14,8 +14,8 @@ composer require teckfuture/laravel-p6-analyzer:^4.0
 ```
 
 No class, method or result key is renamed or removed, so code written for 3.x runs as it is. What changes is
-the result of `dcma14Point()`, `DCMA14PointChecker::calculate()` and `report()['dcma']`: `overall_score`, the
-flat `*_count` and `*_pct` keys and the `points` table. On the package's example schedule,
+the result of `dcma14Point()` and `DCMA14PointChecker::calculate()`: `overall_score`, the flat `*_count` and
+`*_pct` keys and the `points` table. On the package's example schedule,
 `tests/fixtures/example_xer_file.xer` in the repository, the score goes from 58.38 to 57.72.
 
 **Who is affected:** anyone who stores, charts or alerts on the DCMA score or its points, compares the
